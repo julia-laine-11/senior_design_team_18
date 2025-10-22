@@ -5373,9 +5373,9 @@
 		(uuid 5c4d441a-be8a-4e85-8457-9c5f38805314)
 	)
 	(arc
-		(start 95.504 191.262)
-		(mid 88.8804 188.2028)
-		(end 86.36 181.356)
+		(start 103.378 184.404)
+		(mid 100.7518 176.7481)
+		(end 100.584 168.656)
 		(stroke
 			(width 0)
 			(type default)
@@ -5399,7 +5399,7 @@
 	)
 	(bezier
 		(pts
-			(xy 165.1 147.574) (xy 169.672 160.528) (xy 169.926 148.082) (xy 165.1 160.528)
+			(xy 167.894 154.686) (xy 172.466 167.64) (xy 172.72 155.194) (xy 167.894 167.64)
 		)
 		(stroke
 			(width 0)
@@ -5409,6 +5409,18 @@
 			(type none)
 		)
 		(uuid 8fd89715-2f52-4158-accf-ca8406f55c88)
+	)
+	(rectangle
+		(start 91.44 157.226)
+		(end 110.998 168.402)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid 9683ce1b-1fa9-40c8-ab72-e70f1f1aee0f)
 	)
 	(rectangle
 		(start 182.88 14.986)
@@ -5446,6 +5458,18 @@
 		)
 		(uuid e277c8f2-fab5-4d22-b60f-163ece089054)
 	)
+	(rectangle
+		(start 50.292 172.72)
+		(end 64.008 179.07)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(fill
+			(type none)
+		)
+		(uuid e85142d5-5a99-443d-af6a-b7e013db1e48)
+	)
 	(arc
 		(start 115.57 131.318)
 		(mid 112.5108 137.9416)
@@ -5461,7 +5485,7 @@
 	)
 	(text "i will look into\nall these pins\nnext time"
 		(exclude_from_sim no)
-		(at 176.784 154.94 0)
+		(at 179.578 162.052 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5479,9 +5503,9 @@
 		)
 		(uuid "131ecd5e-dc63-4dfe-9e34-3fc4e4181706")
 	)
-	(text "ft232 datasheet calls for this\nwill look into why later"
+	(text "i see people add these. it acts as a LF filter"
 		(exclude_from_sim no)
-		(at 108.966 190.246 0)
+		(at 100.838 186.182 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5540,6 +5564,16 @@
 			)
 		)
 		(uuid "480223d0-cba4-41da-90a6-271cdcc5e3a7")
+	)
+	(text "the question is, do they go USB->C->R->MCU, \nor is it R->C in the middle?\nand, do i need them?"
+		(exclude_from_sim no)
+		(at 100.584 192.024 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "48bda62c-8a53-4f32-9b52-dbf374673c49")
 	)
 	(text "(nominal: 2.95 V)"
 		(exclude_from_sim no)
@@ -5663,6 +5697,16 @@
 			)
 		)
 		(uuid "d90233f1-ef08-4b8d-8d73-2a917dc6ffca")
+	)
+	(text "aligns with FT232R usbc datasheet advice\n"
+		(exclude_from_sim no)
+		(at 70.104 181.61 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "dd99349b-8d32-4462-adc2-36d3d8725cf2")
 	)
 	(text "PDR"
 		(exclude_from_sim no)
@@ -6159,10 +6203,6 @@
 		(uuid "0203a41e-f400-431f-b901-04a99355a83e")
 	)
 	(no_connect
-		(at 162.56 144.78)
-		(uuid "26cf970a-2948-4fa2-bef0-a573a49d5bbf")
-	)
-	(no_connect
 		(at 162.56 177.8)
 		(uuid "3205a067-69da-427e-ab24-46b1154384a8")
 	)
@@ -6209,10 +6249,6 @@
 	(no_connect
 		(at 162.56 154.94)
 		(uuid "84f0f77c-44df-4e58-b9ef-a8cfe688f701")
-	)
-	(no_connect
-		(at 162.56 147.32)
-		(uuid "9170072c-91c5-4385-9745-d0fa6a2c0d38")
 	)
 	(no_connect
 		(at 162.56 172.72)
@@ -6549,6 +6585,16 @@
 			(type default)
 		)
 		(uuid "2a2d6819-ea2e-44ff-977d-4eb343666a69")
+	)
+	(polyline
+		(pts
+			(xy 68.58 176.022) (xy 68.834 176.276)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "2b75e47f-186f-4374-b52f-801e789bcbb2")
 	)
 	(wire
 		(pts
@@ -7070,6 +7116,16 @@
 		)
 		(uuid "6bc8fbdd-d855-4a99-be99-a50ad232a972")
 	)
+	(polyline
+		(pts
+			(xy 65.786 175.768) (xy 65.786 178.562)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "6cd01369-b17d-49fc-8a73-791cbb531701")
+	)
 	(wire
 		(pts
 			(xy 67.31 165.1) (xy 67.31 166.37)
@@ -7252,7 +7308,7 @@
 	)
 	(polyline
 		(pts
-			(xy 86.36 181.102) (xy 84.836 182.626)
+			(xy 103.124 184.912) (xy 101.6 183.388)
 		)
 		(stroke
 			(width 0)
@@ -7480,6 +7536,16 @@
 		)
 		(uuid "92123e22-48ca-47be-a050-32352ec0fabf")
 	)
+	(polyline
+		(pts
+			(xy 65.786 176.022) (xy 68.58 176.022)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9285135c-ab0e-43b1-b4b5-5e0a8c0f4218")
+	)
 	(wire
 		(pts
 			(xy 48.26 19.05) (xy 50.8 19.05)
@@ -7670,6 +7736,16 @@
 		)
 		(uuid "a6cb0f8d-c7cf-4385-a7ca-8e790bba6709")
 	)
+	(polyline
+		(pts
+			(xy 66.294 176.276) (xy 66.294 176.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aa2cc0c7-641e-4313-8aec-33f70749cd2b")
+	)
 	(wire
 		(pts
 			(xy 181.61 57.15) (xy 179.07 57.15)
@@ -7732,7 +7808,7 @@
 	)
 	(wire
 		(pts
-			(xy 109.22 144.78) (xy 121.92 144.78)
+			(xy 111.76 144.78) (xy 121.92 144.78)
 		)
 		(stroke
 			(width 0)
@@ -7939,6 +8015,16 @@
 			(type default)
 		)
 		(uuid "c9d2713e-e30b-4066-9ea9-194453f257cb")
+	)
+	(polyline
+		(pts
+			(xy 66.294 176.53) (xy 68.834 179.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "cc5aba59-0364-4fa3-8ceb-aec061084656")
 	)
 	(wire
 		(pts
@@ -8182,7 +8268,7 @@
 	)
 	(polyline
 		(pts
-			(xy 86.36 181.102) (xy 87.63 182.372)
+			(xy 103.124 184.912) (xy 104.394 183.642)
 		)
 		(stroke
 			(width 0)
@@ -8239,6 +8325,16 @@
 			(type default)
 		)
 		(uuid "ed3c171a-9081-4a55-bbc2-4a22df23e358")
+	)
+	(polyline
+		(pts
+			(xy 65.786 176.022) (xy 65.786 178.562)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f121545d-71cd-4bf3-a525-1c98bd6d09df")
 	)
 	(wire
 		(pts
@@ -12493,7 +12589,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 109.22 148.59 0)
+		(at 111.76 148.59 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12501,7 +12597,7 @@
 		(dnp no)
 		(uuid "15db13a8-f1b8-4a0d-a2fa-2d2bfc369b69")
 		(property "Reference" "C18"
-			(at 111.76 147.32 0)
+			(at 114.3 147.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12510,7 +12606,7 @@
 			)
 		)
 		(property "Value" ".1uF"
-			(at 111.76 149.86 0)
+			(at 114.3 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12519,7 +12615,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 110.1852 152.4 0)
+			(at 112.7252 152.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12528,7 +12624,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 109.22 148.59 0)
+			(at 111.76 148.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12537,7 +12633,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 109.22 148.59 0)
+			(at 111.76 148.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12627,7 +12723,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 109.22 152.4 0)
+		(at 111.76 152.4 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -12635,7 +12731,7 @@
 		(dnp no)
 		(uuid "382086d1-6e37-49e0-87eb-1fabbce98294")
 		(property "Reference" "#PWR07"
-			(at 109.22 158.75 0)
+			(at 111.76 158.75 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12644,7 +12740,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 109.347 156.7942 0)
+			(at 111.887 156.7942 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12653,7 +12749,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 109.22 152.4 0)
+			(at 111.76 152.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12662,7 +12758,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 109.22 152.4 0)
+			(at 111.76 152.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12671,7 +12767,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 109.22 152.4 0)
+			(at 111.76 152.4 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13266,6 +13362,74 @@
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e/595154cc-9bb5-4179-9279-e65ff803e35f"
 					(reference "#PWR08")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_US")
+		(at 97.79 160.02 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "8fa49bfc-f525-47df-b8f9-327d7fe421fd")
+		(property "Reference" "R8"
+			(at 97.79 153.67 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "33"
+			(at 97.79 156.21 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 98.044 159.004 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 97.79 160.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, US symbol"
+			(at 97.79 160.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "ebdf352a-0cd6-45e9-9a4c-76d9ca79bbfe")
+		)
+		(pin "1"
+			(uuid "3cb9c1dd-56af-47b1-83c3-f242355e1439")
+		)
+		(instances
+			(project ""
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e/595154cc-9bb5-4179-9279-e65ff803e35f"
+					(reference "R8")
 					(unit 1)
 				)
 			)
@@ -14293,6 +14457,74 @@
 			(project ""
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e/595154cc-9bb5-4179-9279-e65ff803e35f"
 					(reference "J1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_US")
+		(at 105.41 165.1 90)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "fac1b8cf-df02-4225-a044-71a79ba98dbe")
+		(property "Reference" "R9"
+			(at 105.41 158.75 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "33"
+			(at 105.41 161.29 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 105.664 164.084 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 105.41 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Resistor, US symbol"
+			(at 105.41 165.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "ebdf352a-0cd6-45e9-9a4c-76d9ca79bbfe")
+		)
+		(pin "1"
+			(uuid "3cb9c1dd-56af-47b1-83c3-f242355e1439")
+		)
+		(instances
+			(project ""
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e/595154cc-9bb5-4179-9279-e65ff803e35f"
+					(reference "R9")
 					(unit 1)
 				)
 			)
