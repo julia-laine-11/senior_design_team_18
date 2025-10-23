@@ -7,12 +7,20 @@
 import numpy as np
 import time
 import cv2
+from statistics import mean
+import tkinter as tk
+from tkinter import messagebox
 
 # -------------------- USER SETTINGS --------------------
-CAM_INDEX = 1
+CAM_INDEX = 0
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
-TARGET_FPS = 60
+TARGET_FPS = 90
+TRACK_LIGHT = True  # Track light-colored puck if True, dark if False
+MIN_SOLIDITY = 0.85  # Minimum solidity (area/convex hull area ratio)
+MAX_ASPECT_RATIO = 1.2  # Maximum allowed aspect ratio (width/height)
+MAX_VELOCITY = 1000  # Maximum allowed velocity in pixels/second
+MIN_DETECTION_SCORE = 0.7  # Minimum score to consider a detection valid
 
 # Initial HSV bounds (looser for slightly brighter puck)
 PUCK_HSV_LOW  = [0, 0, 0]
@@ -26,9 +34,31 @@ ROI_MARGINS = dict(top=60, bottom=60, left=200, right=450)
 # Helper to create ROI mask
 def make_roi_mask(h, w, margins):
     """Build a uint8 mask: 255 inside ROI, 0 outside."""
+    # Convert dimensions to integers
+    h = int(h)
+    w = int(w)
+    
+    # Create mask with correct dimensions
     mask = np.zeros((h, w), dtype=np.uint8)
-    t, b, l, r = margins["top"], margins["bottom"], margins["left"], margins["right"]
-    cv2.rectangle(mask, (l, t), (w - r, h - b), 255, thickness=-1)
+    
+    # Convert margin values to integers
+    t = int(margins["top"])
+    b = int(margins["bottom"])
+    l = int(margins["left"])
+    r = int(margins["right"])
+    
+    # Draw rectangle on mask (everything outside will be black)
+    # Note: points are (x,y) format
+    roi_points = np.array([
+        [l, t],  # Top left
+        [w-r, t],  # Top right
+        [w-r, h-b],  # Bottom right
+        [l, h-b]  # Bottom left
+    ], dtype=np.int32)
+    
+    # Fill the ROI region with white
+    cv2.fillPoly(mask, [roi_points], 255)
+    
     return mask
 
 # Simple 2D constant-velocity Kalman filter
@@ -87,6 +117,10 @@ def nothing(x):
 # Set up trackbars for HSV, ROI, radius
 def setup_trackbars(h, w):
     cv2.namedWindow("Controls", cv2.WINDOW_NORMAL)
+    cv2.namedWindow("HSV Debug", cv2.WINDOW_NORMAL)
+
+    # Add tracking mode switch
+    cv2.createTrackbar("Track Light/Dark", "Controls", 1, 1, nothing)
 
     # HSV thresholds
     cv2.createTrackbar("LowH", "Controls", PUCK_HSV_LOW[0], 180, nothing)
@@ -108,6 +142,7 @@ def setup_trackbars(h, w):
 
 # Read trackbar positions
 def update_params(h, w):
+    track_light = cv2.getTrackbarPos("Track Light/Dark", "Controls") == 1
     lowH = cv2.getTrackbarPos("LowH", "Controls")
     lowS = cv2.getTrackbarPos("LowS", "Controls")
     lowV = cv2.getTrackbarPos("LowV", "Controls")
@@ -130,7 +165,8 @@ def update_params(h, w):
             np.array([highH, highS, highV]),
             margins,
             min_radius,
-            max_radius)
+            max_radius,
+            track_light)
 
 
 def main():
@@ -138,6 +174,9 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
     cap.set(cv2.CAP_PROP_FPS, TARGET_FPS)
+
+    last_valid_pos = None
+    last_valid_time = time.time()
 
     if not cap.isOpened():
         print("Error: cannot open camera")
@@ -151,11 +190,15 @@ def main():
     h, w = frame.shape[:2]
     kf = ConstantVelocityKF(init_xy=(w / 2, h / 2))
 
+    # if combined.shape[:2] != roi_mask.shape[:2]:
+    #     roi_mask = cv2.resize(roi_mask, (combined.shape[1], combined.shape[0]))
+
     fps_t = time.time()
     last_print_t = 0.0
 
     # Setup sliders
     setup_trackbars(h, w)
+
 
     while True:
         ret, frame = cap.read()
@@ -163,7 +206,7 @@ def main():
             break
 
         # Read sliders each loop
-        lowHSV, highHSV, margins, min_r, max_r = update_params(h, w)
+        lowHSV, highHSV, margins, min_r, max_r, track_light = update_params(h, w)
 
         roi_mask = make_roi_mask(h, w, margins)
 
@@ -172,6 +215,8 @@ def main():
 
         # --- Color threshold ---
         mask_color = cv2.inRange(hsv, lowHSV, highHSV)
+        if not track_light:
+            mask_color = cv2.bitwise_not(mask_color)
 
         # --- Adaptive threshold fallback ---
         gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
@@ -181,12 +226,19 @@ def main():
 
         # Combine (color OR adaptive), then ROI
         combined = cv2.bitwise_or(mask_color, adaptive)
+        roi_mask = make_roi_mask(frame.shape[0], frame.shape[1], margins)
+
+        if combined.shape[:2] != roi_mask.shape[:2]:
+            roi_mask = cv2.resize(roi_mask, (combined.shape[1], combined.shape[0]))
         combined = cv2.bitwise_and(combined, roi_mask)
 
         # Morphological cleanup
-        kernel = np.ones((5, 5), np.uint8)
-        combined = cv2.morphologyEx(combined, cv2.MORPH_OPEN, kernel)
-        combined = cv2.morphologyEx(combined, cv2.MORPH_DILATE, kernel)
+        kernel_open = np.ones((3, 3), np.uint8)  # Smaller kernel for opening
+        kernel_close = np.ones((5, 5), np.uint8)  # Larger kernel for closing
+        
+        combined = cv2.morphologyEx(combined, cv2.MORPH_OPEN, kernel_open)
+        combined = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel_close)
+        combined = cv2.morphologyEx(combined, cv2.MORPH_ERODE, kernel_open)
 
         # --- Find puck candidate ---
         contours, _ = cv2.findContours(combined, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -208,9 +260,52 @@ def main():
                 best_score = score
                 meas = (float(x), float(y), float(rad))
 
+            rect = cv2.minAreaRect(cnt)
+            w, h = rect[1]
+            if w == 0 or h == 0:
+                continue
+                
+            # Check aspect ratio
+            aspect_ratio = max(w, h) / min(w, h)
+            if aspect_ratio > MAX_ASPECT_RATIO:
+                continue
+                
+            # Check solidity
+            hull = cv2.convexHull(cnt)
+            hull_area = cv2.contourArea(hull)
+            if hull_area > 0:
+                solidity = area / hull_area
+                if solidity < MIN_SOLIDITY:
+                    continue
+            
+            # Adjust scoring to include these metrics
+            circularity = 4.0 * np.pi * (area / (perimeter * perimeter))
+            score = circularity * (1.0 - (aspect_ratio - 1.0)) * solidity
+            
+            if score > best_score:
+                best_score = score
+                meas = (float(x), float(y), float(rad))
+
         # Kalman predict + correct
-        if meas is not None:
-            fx, fy, vx, vy = kf.correct(meas[0], meas[1])
+        if meas is not None and best_score > MIN_DETECTION_SCORE:
+            current_time = time.time()
+            if last_valid_pos is not None:
+                # Check if movement is physically possible
+                dx = meas[0] - last_valid_pos[0]
+                dy = meas[1] - last_valid_pos[1]
+                dt = current_time - last_valid_time
+                velocity = np.sqrt(dx*dx + dy*dy) / dt
+                
+                if velocity > MAX_VELOCITY:
+                    meas = None  # Reject physically impossible movements
+                else:
+                    last_valid_pos = (meas[0], meas[1])
+                    last_valid_time = current_time
+                    fx, fy, vx, vy = kf.correct(meas[0], meas[1])
+            else:
+                last_valid_pos = (meas[0], meas[1])
+                last_valid_time = current_time
+                fx, fy, vx, vy = kf.correct(meas[0], meas[1])
         else:
             fx, fy, vx, vy = kf.predict()
 
@@ -218,12 +313,21 @@ def main():
         vis = frame.copy()
         cv2.circle(vis, (int(fx), int(fy)), int(max_r), (0, 255, 0), 2)
         cv2.rectangle(vis,
-                      (margins["left"], margins["top"]),
-                      (w - margins["right"], h - margins["bottom"]),
-                      (255, 0, 0), 2)
+                     pt1=(int(margins["left"]), int(margins["top"])),
+                     pt2=(int(w - margins["right"]), int(h - margins["bottom"])),
+                     color=(255, 0, 0),
+                     thickness=2)
         cv2.putText(vis, f"KF: ({int(fx)}, {int(fy)})", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
+        
+        hsv_channels = cv2.split(hsv)
+        hsv_vis = np.hstack([
+        cv2.cvtColor(hsv_channels[0], cv2.COLOR_GRAY2BGR),  # H channel
+        cv2.cvtColor(hsv_channels[1], cv2.COLOR_GRAY2BGR),  # S channel
+        cv2.cvtColor(hsv_channels[2], cv2.COLOR_GRAY2BGR)   # V channel
+    ])
+        
+        cv2.imshow("HSV Debug", hsv_vis)
         cv2.imshow("Mask", combined)
         cv2.imshow("Puck Tracking", vis)
 
