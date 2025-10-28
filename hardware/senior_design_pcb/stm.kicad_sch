@@ -6890,6 +6890,16 @@
 		)
 		(uuid "31f7ba5f-85f5-4770-ae14-c59a6924cbe3")
 	)
+	(text "power for LED array should be seperate"
+		(exclude_from_sim no)
+		(at 213.868 169.926 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "32c9c1ed-162a-49b6-a1b6-dd06aa62b587")
+	)
 	(text "Console Button"
 		(exclude_from_sim no)
 		(at 166.1156 173.254 0)
