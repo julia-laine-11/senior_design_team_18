@@ -7668,10 +7668,6 @@
 		(uuid "d617eb0d-d9d9-457d-a752-020e3605490a")
 	)
 	(no_connect
-		(at 39.37 87.63)
-		(uuid "de6057a2-746e-446a-b6a9-91e8e8bdbbf0")
-	)
-	(no_connect
 		(at 95.25 95.25)
 		(uuid "e103558b-2fd9-4ad2-839d-c3560f213318")
 	)
@@ -10273,26 +10269,6 @@
 		)
 		(uuid "0fe07122-d144-454c-bdcc-f667fb4377a7")
 	)
-	(label "ADMIN_JOYSTICK-BUTTON"
-		(at 95.25 59.69 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "11f5922a-40c5-4a28-b355-a6713a656356")
-	)
-	(label "ADMIN_JOYSTICK-Y"
-		(at 95.25 62.23 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "1467d82d-a6c3-43e7-bed5-b852fd852b2a")
-	)
 	(label "PC14"
 		(at 313.5217 78.4896 180)
 		(effects
@@ -10383,6 +10359,16 @@
 		)
 		(uuid "19a3954d-45b8-4a48-b914-d1ce63e5f30c")
 	)
+	(label "ADMIN_JOYSTICK-X"
+		(at 39.37 54.61 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "1e1147b6-05eb-4b5b-8290-1199b1ab95ab")
+	)
 	(label "PA11"
 		(at 90.17 62.23 0)
 		(effects
@@ -10432,6 +10418,16 @@
 			(justify left bottom)
 		)
 		(uuid "2451d4d0-3775-48a2-9aa9-cf52bdeecd34")
+	)
+	(label "CONTROLLER-BUTTON"
+		(at 39.37 87.63 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "25858289-ecb1-47ab-8ad1-8cf290f7d01f")
 	)
 	(label "PB15"
 		(at 90.17 115.57 0)
@@ -10612,16 +10608,6 @@
 			(justify left bottom)
 		)
 		(uuid "371f57ad-c07a-4cb0-a6d8-fe379e88bce1")
-	)
-	(label "ADMIN_JOYSTICK-X"
-		(at 95.25 64.77 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "3b0adba4-4e8c-42f7-afcb-637b557f243f")
 	)
 	(label "PC1"
 		(at 41.91 57.15 0)
@@ -11033,6 +11019,16 @@
 		)
 		(uuid "85d3bb9a-2631-4eb5-95e5-fd67da0f4632")
 	)
+	(label "ADMIN_JOYSTICK-Y"
+		(at 39.37 57.15 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "86d8ada1-1ead-4774-a0a2-2a173382ce07")
+	)
 	(label "PB9"
 		(at 90.17 100.33 0)
 		(effects
@@ -11142,26 +11138,6 @@
 			(justify right bottom)
 		)
 		(uuid "8e5f71f0-4513-4632-a2ac-4124abaf582b")
-	)
-	(label "USER_JOYSTICK-X"
-		(at 39.37 54.61 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "8f34d47c-6009-4697-b352-b2b8166cff08")
-	)
-	(label "USER_JOYSTICK-BUTTON"
-		(at 39.37 59.69 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "92ebae77-763c-463c-89b6-ef794678400f")
 	)
 	(label "BOOT0"
 		(at 326.9942 110.0124 0)
@@ -11383,16 +11359,6 @@
 		)
 		(uuid "b95b94e5-6059-4877-92cb-24d0133aecf5")
 	)
-	(label "USER_JOYSTICK-Y"
-		(at 39.37 57.15 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "bc4105ac-6ebe-456b-b305-1f385d815032")
-	)
 	(label "PA13"
 		(at 90.17 67.31 0)
 		(effects
@@ -11422,6 +11388,16 @@
 			(justify left bottom)
 		)
 		(uuid "c120aec8-745a-4b49-a7f6-3d5b8bc278ae")
+	)
+	(label "ADMIN_JOYSTICK-BUTTON"
+		(at 39.37 59.69 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "c1c9b0b1-e302-4e1c-8b13-695de44a3427")
 	)
 	(label "CONTROLLER_Y_IN"
 		(at 95.25 36.83 0)
