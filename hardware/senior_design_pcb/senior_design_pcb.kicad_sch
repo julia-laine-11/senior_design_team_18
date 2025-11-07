@@ -2469,7 +2469,7 @@
 		(uuid "fef77001-98a0-4ff4-9c88-52f03a61507c")
 	)
 	(sheet
-		(at 17.78 99.06)
+		(at 26.924 104.648)
 		(size 43.18 16.002)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -2485,7 +2485,7 @@
 		)
 		(uuid "595154cc-9bb5-4179-9279-e65ff803e35f")
 		(property "Sheetname" "stm"
-			(at 17.78 98.3484 0)
+			(at 26.924 103.9364 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2494,7 +2494,7 @@
 			)
 		)
 		(property "Sheetfile" "stm.kicad_sch"
-			(at 17.78 115.6466 0)
+			(at 26.924 121.2346 0)
 			(effects
 				(font
 					(size 1.27 1.27)

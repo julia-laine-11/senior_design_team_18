@@ -1,4 +1,3 @@
-
 # Air Hockey Puck Tracker (Classical CV + Kalman + ROI)
 # with interactive sliders for quick tuning (HSV, ROI, Radius)
 # ROI: Region Of Interest

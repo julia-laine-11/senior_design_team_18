@@ -1,0 +1,62 @@
+2025-10-22 01:36:23,457 [INFO] WebApp:194 - Connection lost
+2025-10-22 01:36:24,348 [INFO] WebApp:191 - Connection restablished
+2025-10-22 01:41:28,749 [INFO] WebApp:194 - Connection lost
+2025-10-22 01:41:29,806 [INFO] WebApp:191 - Connection restablished
+2025-10-22 01:46:09,042 [INFO] WebApp:194 - Connection lost
+2025-10-22 01:46:09,873 [INFO] WebApp:191 - Connection restablished
+2025-10-22 01:47:14,485 [INFO] WebApp:194 - Connection lost
+2025-10-22 01:47:15,487 [INFO] WebApp:191 - Connection restablished
+2025-10-22 03:16:30,125 [INFO] WebApp:194 - Connection lost
+2025-10-22 03:16:30,956 [INFO] WebApp:191 - Connection restablished
+2025-10-22 03:17:01,904 [INFO] WebApp:194 - Connection lost
+2025-10-22 03:17:02,563 [INFO] WebApp:191 - Connection restablished
+2025-10-22 04:05:20,128 [INFO] WebApp:194 - Connection lost
+2025-10-22 04:05:22,011 [INFO] WebApp:191 - Connection restablished
+2025-10-22 04:06:00,560 [INFO] WebApp:194 - Connection lost
+2025-10-22 04:06:01,378 [INFO] WebApp:191 - Connection restablished
+2025-10-22 12:29:20,736 [INFO] WebApp:194 - Connection lost
+2025-10-22 12:29:21,131 [INFO] WebApp:191 - Connection restablished
+2025-10-22 12:29:53,863 [INFO] WebApp:194 - Connection lost
+2025-10-22 12:29:54,538 [INFO] WebApp:191 - Connection restablished
+2025-10-22 12:53:27,148 [INFO] WebApp:194 - Connection lost
+2025-10-22 15:09:14,598 [INFO] WebApp:191 - Connection restablished
+2025-10-22 15:36:05,322 [INFO] WebApp:194 - Connection lost
+2025-10-22 15:36:27,698 [INFO] WebApp:191 - Connection restablished
+2025-10-22 15:45:01,146 [INFO] WebApp:194 - Connection lost
+2025-10-22 15:45:08,732 [INFO] WebApp:191 - Connection restablished
+2025-10-22 16:02:40,183 [INFO] WebApp:194 - Connection lost
+2025-10-22 18:42:56,535 [INFO] WebApp:191 - Connection restablished
+2025-10-22 18:48:31,537 [INFO] UtilMem:75 - End SaveConfig() Used Memory: 204869344 Bytes (692060160)
+2025-10-22 18:48:33,594 [INFO] UtilMem:75 - End SaveConfig() Used Memory: 231411928 Bytes (692060160)
+2025-10-22 18:48:33,990 [INFO] UtilMem:75 - End SaveConfig() Used Memory: 256048760 Bytes (692060160)
+2025-10-22 18:48:34,594 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: NVIC
+2025-10-22 18:48:34,596 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: USART
+2025-10-22 18:48:34,596 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: SYS
+2025-10-22 18:48:34,597 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: GPIO
+2025-10-22 18:48:34,598 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: RCC
+2025-10-22 18:48:34,598 [INFO] CodeGenerator:892 - code generatio: config db path: /opt/st/stm32cubeide_1.19.0/plugins/com.st.stm32cube.common.mx_6.15.0.202507011659//db/
+2025-10-22 18:48:34,789 [INFO] CodeEngine:265 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/MXTmpFiles/license.tmp_save
+2025-10-22 18:48:35,323 [INFO] CodeEngine:289 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/MXTmpFiles/license.tmp
+2025-10-22 18:48:35,486 [INFO] CodeEngine:265 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/MXTmpFiles/gpio.tmp_save
+2025-10-22 18:48:35,724 [INFO] CodeEngine:289 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/MXTmpFiles/gpio.tmp
+2025-10-22 18:48:35,877 [INFO] CodeEngine:265 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/Core/Src/stm32f0xx_it.c_save
+2025-10-22 18:48:36,247 [INFO] CodeEngine:289 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/Core/Src/stm32f0xx_it.c
+2025-10-22 18:48:36,249 [INFO] CodeEngine:265 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/Core/Inc/stm32f0xx_it.h_save
+2025-10-22 18:48:36,368 [INFO] CodeEngine:289 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/Core/Inc/stm32f0xx_it.h
+2025-10-22 18:48:36,376 [INFO] CodeEngine:265 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/Core/Src/stm32f0xx_hal_msp.c_save
+2025-10-22 18:48:36,582 [INFO] CodeEngine:289 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/Core/Src/stm32f0xx_hal_msp.c
+2025-10-22 18:48:36,584 [INFO] CodeEngine:265 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/MXTmpFiles/system.tmp_save
+2025-10-22 18:48:36,684 [INFO] CodeEngine:289 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/MXTmpFiles/system.tmp
+2025-10-22 18:48:36,691 [INFO] CodeEngine:321 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/Core/Inc/stm32f0xx_hal_conf.h_save
+2025-10-22 18:48:36,800 [INFO] CodeEngine:345 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/Core/Inc/stm32f0xx_hal_conf.h
+2025-10-22 18:48:36,833 [INFO] ApiDbMcu:532 - Load IP Config File for USART1
+2025-10-22 18:48:36,839 [INFO] CodeEngine:265 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/Core/Inc/main.h_save
+2025-10-22 18:48:36,984 [INFO] CodeEngine:289 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/Core/Inc/main.h
+2025-10-22 18:48:36,987 [INFO] CodeEngine:265 - oldGeneratedFile, /home/j/STM32CubeIDE/workspace_10-21/1/Core/Src/main.c_save
+2025-10-22 18:48:37,171 [INFO] CodeEngine:289 - Generated code: /home/j/STM32CubeIDE/workspace_10-21/1/Core/Src/main.c
+2025-10-22 18:48:37,578 [INFO] ProjectBuilder:3606 - Time for Copy HAL[1] : 31mS.
+2025-10-22 18:48:37,583 [INFO] ProjectBuilder:5216 - Project Generator version: 4.7.0-B52
+2025-10-22 18:48:37,731 [INFO] ConfigFileManager:1595 - The Die is : DIE442
+2025-10-22 18:48:39,186 [INFO] ProjectBuilder:5496 - Time for Generating toolchain IDE Files: 1603mS.
+2025-10-22 18:48:39,187 [INFO] ProjectBuilder:3463 - Time for Copy CMSIS : 0mS.
+2025-10-22 18:48:39,187 [INFO] ProjectBuilder:3463 - Time for Copy CMSIS : 0mS.
