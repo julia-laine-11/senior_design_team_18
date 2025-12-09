@@ -1296,3 +1296,27 @@ Command-line arguments:  -os linux -ws gtk -arch x86_64
 
 !ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-11-03 18:35:46.015
 !MESSAGE Log4j2 initialized with config file /home/j/Documents/Git_stuff/senior_design_team_18/hardware/cube_ide_sr_design/.metadata/.log4j2.xml
+!SESSION 2025-11-29 14:59:27.375 -----------------------------------------------
+eclipse.buildId=Version 1.19.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=linux, ARCH=x86_64, WS=gtk, NL=en_US
+Command-line arguments:  -os linux -ws gtk -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-11-29 14:59:39.318
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-11-29 14:59:39.319
+!MESSAGE Log4j2 initialized with config file /home/j/Documents/Git_stuff/senior_design_team_18/hardware/cube_ide_sr_design/.metadata/.log4j2.xml
+!SESSION 2025-12-09 12:22:37.601 -----------------------------------------------
+eclipse.buildId=Version 1.19.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=linux, ARCH=x86_64, WS=gtk, NL=en_US
+Command-line arguments:  -os linux -ws gtk -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-12-09 12:22:46.515
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-12-09 12:22:46.516
+!MESSAGE Log4j2 initialized with config file /home/j/Documents/Git_stuff/senior_design_team_18/hardware/cube_ide_sr_design/.metadata/.log4j2.xml
