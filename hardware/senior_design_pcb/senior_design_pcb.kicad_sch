@@ -12474,6 +12474,16 @@
 		)
 		(uuid "44e1d55d-f6ac-4bd5-9cc3-15746d89667c")
 	)
+	(label "USER_JOYSTICK-X"
+		(at 95.25 31.75 0)
+		(effects
+			(font
+				(size 1.016 1.016)
+			)
+			(justify left bottom)
+		)
+		(uuid "454cb7ab-04d9-486e-a7e4-b1bae112b853")
+	)
 	(label "B1"
 		(at 175.26 181.61 180)
 		(effects
@@ -12614,26 +12624,6 @@
 		)
 		(uuid "5662cea7-b038-409c-85b8-f46eb166bb7f")
 	)
-	(label "CONTROLLER_X_IN"
-		(at 95.25 31.75 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "5666f353-74df-46e1-bbc3-2c1915f1412e")
-	)
-	(label "CONTROLLER-BUTTON"
-		(at 39.37 85.09 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "56a0425f-69ac-4628-b8f7-55b5c786940f")
-	)
 	(label "CLK"
 		(at 95.25 41.91 0)
 		(effects
@@ -12763,6 +12753,16 @@
 			(justify left bottom)
 		)
 		(uuid "7000a28d-8213-427d-b4d4-b08aa5e86d5a")
+	)
+	(label "3v3-vo"
+		(at 160.02 101.0543 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7019da70-ce7a-498c-bfd0-398e3dbc0578")
 	)
 	(label "PC15"
 		(at 316.23 111.76 0)
@@ -13034,16 +13034,6 @@
 		)
 		(uuid "9a9d086b-827c-4065-b270-71cb5ed1dc99")
 	)
-	(label "CONTROLLER_Y_IN"
-		(at 95.25 34.29 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "9b190836-5c18-4508-a386-5531268adad7")
-	)
 	(label "STEP2_OUT2"
 		(at 95.25 107.95 0)
 		(effects
@@ -13113,6 +13103,16 @@
 			(justify left bottom)
 		)
 		(uuid "a747e3d2-3a9f-4161-84bd-3b324d4c7ec2")
+	)
+	(label "USER_JOYSTICK-BUTTON"
+		(at 39.37 85.09 180)
+		(effects
+			(font
+				(size 0.762 0.762)
+			)
+			(justify right bottom)
+		)
+		(uuid "abddb383-4875-4bac-a741-b42b3840ac0a")
 	)
 	(label "PA12"
 		(at 90.17 62.23 0)
@@ -13253,6 +13253,16 @@
 			(justify right bottom)
 		)
 		(uuid "c914d984-4cad-4606-831d-01acc9a16e16")
+	)
+	(label "USER_JOYSTICK-Y"
+		(at 95.25 34.29 0)
+		(effects
+			(font
+				(size 1.016 1.016)
+			)
+			(justify left bottom)
+		)
+		(uuid "cb12706d-1adb-437c-af52-ce777600b60b")
 	)
 	(label "PB1"
 		(at 90.17 77.47 0)
@@ -16601,7 +16611,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10nf"
+		(property "Value" ".01uF"
 			(at 255.647 112.4843 0)
 			(effects
 				(font
@@ -17158,7 +17168,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" ".1uF"
 			(at 208.28 43.18 0)
 			(effects
 				(font
@@ -20410,7 +20420,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100nF"
+		(property "Value" ".1uF"
 			(at 173.99 36.83 0)
 			(effects
 				(font
@@ -21867,7 +21877,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "10nF"
+		(property "Value" ".01uF"
 			(at 163.83 36.83 0)
 			(effects
 				(font
