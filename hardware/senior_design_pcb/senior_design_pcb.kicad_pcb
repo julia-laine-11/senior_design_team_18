@@ -20674,19 +20674,6 @@
 		(layer "User.4")
 		(uuid "d3ef98be-4830-4daa-bbe7-b962a36e9680")
 	)
-	(gr_text "common gnd for tehse"
-		(at 71.8 129.2 45)
-		(layer "F.Cu")
-		(uuid "e06d5aa7-235d-4903-813f-15a9ccacd222")
-		(effects
-			(font
-				(size 1.5 1.5)
-				(thickness 0.3)
-				(bold yes)
-			)
-			(justify left bottom)
-		)
-	)
 	(gr_text "the connectors are all 2.5 NOT 2.56mm rn"
 		(at 20 0 0)
 		(layer "User.1")
