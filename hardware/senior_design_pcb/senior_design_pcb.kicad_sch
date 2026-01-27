@@ -7867,7 +7867,7 @@
 		(uuid b54902db-beb0-450f-a0f1-40ad5bb74a7b)
 	)
 	(rectangle
-		(start 14.478 14.224)
+		(start 13.97 13.97)
 		(end 120.904 123.698)
 		(stroke
 			(width 0)
@@ -9147,6 +9147,10 @@
 		(uuid "11ec5cf3-7c16-4afd-af8d-f537241afc84")
 	)
 	(no_connect
+		(at 95.25 59.69)
+		(uuid "1707a984-9fde-471c-9d7b-e1b6bc41ed0a")
+	)
+	(no_connect
 		(at 324.4486 55.2307)
 		(uuid "22e992a4-cd4a-4d40-9004-782ec1c035bc")
 	)
@@ -9173,6 +9177,14 @@
 	(no_connect
 		(at 324.4486 65.3907)
 		(uuid "5c761283-366f-4d56-84e7-cedb463d6a7d")
+	)
+	(no_connect
+		(at 95.25 62.23)
+		(uuid "662e2d8c-6851-4a61-aa7a-fa28f49deeb4")
+	)
+	(no_connect
+		(at 95.25 57.15)
+		(uuid "6e9bfbc3-5a20-4a2d-966e-1daac1926a48")
 	)
 	(no_connect
 		(at 283.8086 65.3907)
