@@ -5,7 +5,8 @@
 	(uuid "50c554f9-3ed9-4f91-b5d3-2dee1756645e")
 	(paper "USLegal")
 	(title_block
-		(title "AutonAir STM")
+		(title "AutonAir")
+		(company "Purdue University ECE49595")
 	)
 	(lib_symbols
 		(symbol "Connector:Conn_01x02_Socket"
@@ -8573,6 +8574,16 @@
 		)
 		(uuid "40939946-5473-4a58-8143-438428228cb8")
 	)
+	(text "notes:"
+		(exclude_from_sim no)
+		(at -37.592 27.178 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "480eae3a-2d44-4db4-bdea-504bb3715147")
+	)
 	(text "high speed ref"
 		(exclude_from_sim no)
 		(at 222.8805 97.0194 0)
@@ -8879,6 +8890,26 @@
 		)
 		(uuid "09dfd8e8-1c57-42d0-9207-3b9abb67c947")
 	)
+	(text_box "we might change some of these pinouts. nandan says its hard to program but i fear that it will be impossible to route if we make them all sequential according to name. we will talk in our meeting tomorrow tho"
+		(exclude_from_sim no)
+		(at 34.29 -3.81 0)
+		(size 36.83 17.78)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "317bc133-ab9d-4a31-8845-158148dcd1fa")
+	)
 	(text_box "this button right here is the one built into the joystick. it wont be added to the PCB or anything"
 		(exclude_from_sim no)
 		(at 100.33 170.18 0)
@@ -8938,6 +8969,26 @@
 			(justify left top)
 		)
 		(uuid "4a73032a-ea3b-475f-bebc-f28871bc0545")
+	)
+	(text_box "vias 15 mils hole diameter\nuntinted vias for tp\n\n"
+		(exclude_from_sim no)
+		(at -40.64 66.04 0)
+		(size 27.94 19.05)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "4c7f8c25-95e7-4d8b-aeab-7de5d4edf7ce")
 	)
 	(text_box "these do share a ground with the STM already :)"
 		(exclude_from_sim no)
@@ -8999,6 +9050,26 @@
 		)
 		(uuid "8f7cd566-4499-497a-8c07-3a746073d339")
 	)
+	(text_box "This is the big square JTAG on the 362 pcb. we will carry it over since we aready have the STLinkV2 connector for it."
+		(exclude_from_sim no)
+		(at 124.46 67.31 0)
+		(size 27.94 15.24)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "92f714bd-612a-441c-a5a9-aac0721cd6b8")
+	)
 	(text_box "this is the 5v status LED"
 		(exclude_from_sim no)
 		(at 134.9209 61.3006 0)
@@ -9018,6 +9089,26 @@
 			(justify left top)
 		)
 		(uuid "a707d711-dbfa-4726-a91f-67c5ee99a117")
+	)
+	(text_box "Status Light here :)"
+		(exclude_from_sim no)
+		(at 330.2 118.11 0)
+		(size 25.4 5.08)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "ae8be4db-97e0-497d-88ab-1c3c0a87c4ab")
 	)
 	(text_box "These should have external power according to Nandan. They should share a common ground though."
 		(exclude_from_sim no)
@@ -9058,6 +9149,46 @@
 			(justify left top)
 		)
 		(uuid "dcce5896-8967-4465-9321-7591fc4fc6aa")
+	)
+	(text_box "These are the decoupling caps. I keep them over here because it is so messy otherwise.\ntheyre seperated by which pin group they go to. each section has a bulk cap to put near the usbc\n"
+		(exclude_from_sim no)
+		(at 340.36 140.97 0)
+		(size 38.1 13.97)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "ec057a7f-5059-4635-9888-56dbb085f5bb")
+	)
+	(text_box "USB->UART Bridge. The chip we use has no programming pins used. I looked into it and it also does not get programmed before iirc. we should be good to run it as it is default.\n"
+		(exclude_from_sim no)
+		(at 250.19 68.58 0)
+		(size 25.4 19.05)
+		(margins 0.9525 0.9525 0.9525 0.9525)
+		(stroke
+			(width 0)
+			(type solid)
+		)
+		(fill
+			(type none)
+		)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left top)
+		)
+		(uuid "ec0ed8db-e200-4989-abd3-f29b651e5b36")
 	)
 	(junction
 		(at 86.36 69.85)

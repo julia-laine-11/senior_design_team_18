@@ -20803,6 +20803,44 @@
 			(justify left bottom)
 		)
 	)
+	(gr_text_box "honestly this reset can go anywhere just not on the back"
+		(start 124 84)
+		(end 141 91)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "564962ca-e4bc-44e9-b8e1-65d4dfb1d8df")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+	)
+	(gr_text_box "look into Si osc vs crystal osc\ndecoupling caps closer than osc. 8MHz important>> 32kHz "
+		(start 112 41)
+		(end 134 50)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "5ee174d9-b1bf-4781-9511-dd8233182983")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+	)
 	(gr_text_box "we will probably put some of these little .1uf on the other side for the sake of being able to route other traces"
 		(start 74.2 71.6)
 		(end 93.4 82)
@@ -20843,6 +20881,25 @@
 			(type solid)
 		)
 	)
+	(gr_text_box "some of these decoupling caps can go on the back, same for these over here"
+		(start 84.5 49)
+		(end 99.5 59)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "698298d3-80b9-47c2-b127-e3ccbd9cf998")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+	)
 	(gr_text_box "this layout is likely to change. \n- the connectors dont have to be 90 degree angles.\n- we want to add extra pins to the STM "
 		(start 40.5 115.8)
 		(end 79.9 133)
@@ -20880,6 +20937,120 @@
 		(border yes)
 		(stroke
 			(width 0.2)
+			(type solid)
+		)
+	)
+	(gr_text_box "I kept all the comms stuff on this side so programming does not have 8 connections all over"
+		(start 15 46)
+		(end 27 62)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "8b166b3a-a3d6-4de3-b21e-1f9b28e497b7")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+	)
+	(gr_text_box "this was placed here for ease of routing. it would be horrible otherwise"
+		(start 113 18)
+		(end 129 27)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "9b88c604-b7c6-4753-ad3e-d43ee45888b5")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+	)
+	(gr_text_box "tldr\n\n-add testpoints in schematic (walter says every trace)\n-make the vital ones 15mil drill holes and the test ones pads\n-add header with extra pins\n-compare crystal vs Si clocks (for the 32kHz)"
+		(start 212.5 55.25)
+		(end 253.5 76.75)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "c9569ae0-d200-4139-811a-77d7af32518b")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.1524)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+	)
+	(gr_text_box "so we need to bring over the extra pins in the footprint. \n\nwe also should probs put the stretch goals onto the breakout header just for funzies\n\ntest points can also be added as an item in the schematic, otherwise vias with 15mil DRILL diameter will work\n\ni do not know how much kicad yall know so if you want me to go over stuff i can but i dont want to explain stuff yall already know and sound rude"
+		(start 193.25 29)
+		(end 256.75 53)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "d92cc05f-d012-4c91-84b8-e09fc8a79cf7")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.1524)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+	)
+	(gr_text_box "These are here for the sake of being close to the other half of their components"
+		(start 80 20)
+		(end 102 28)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "e2c52fb8-2572-4d41-b88d-1a750d8c3baf")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+	)
+	(gr_text_box "these are here because it is just power. they should stay near the power input for ease of access"
+		(start 49 18)
+		(end 72 28)
+		(margins 1.0025 1.0025 1.0025 1.0025)
+		(layer "Cmts.User")
+		(uuid "ed7c8452-6f9c-470d-8154-b8be367cbbe6")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+			(justify left top)
+		)
+		(border yes)
+		(stroke
+			(width 0.1)
 			(type solid)
 		)
 	)
