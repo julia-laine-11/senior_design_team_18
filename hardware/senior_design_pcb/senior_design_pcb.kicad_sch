@@ -7584,7 +7584,7 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "power:+3V0"
+		(symbol "power:+3V3"
 			(power)
 			(pin_numbers
 				(hide yes)
@@ -7605,7 +7605,7 @@
 					(hide yes)
 				)
 			)
-			(property "Value" "+3V0"
+			(property "Value" "+3V3"
 				(at 0 3.556 0)
 				(effects
 					(font
@@ -7631,7 +7631,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" "Power symbol creates a global label with name \"+3V0\""
+			(property "Description" "Power symbol creates a global label with name \"+3V3\""
 				(at 0 0 0)
 				(effects
 					(font
@@ -7649,7 +7649,7 @@
 					(hide yes)
 				)
 			)
-			(symbol "+3V0_0_1"
+			(symbol "+3V3_0_1"
 				(polyline
 					(pts
 						(xy -0.762 1.27) (xy 0 2.54)
@@ -7687,7 +7687,7 @@
 					)
 				)
 			)
-			(symbol "+3V0_1_1"
+			(symbol "+3V3_1_1"
 				(pin power_in line
 					(at 0 0 90)
 					(length 0)
@@ -8334,20 +8334,6 @@
 		(uuid 2ca0cbb4-b779-4fd4-a6af-6aa5dfce4d56)
 	)
 	(rectangle
-		(start 149.86 96.52)
-		(end 160.02 119.38)
-		(stroke
-			(width 0)
-			(type dash)
-			(color 75 69 15 0.15)
-		)
-		(fill
-			(type color)
-			(color 207 162 23 0.14)
-		)
-		(uuid 3035823f-37a4-467f-8e21-1d005701a4d3)
-	)
-	(rectangle
 		(start 125.0543 18.1012)
 		(end 191.9399 67.8852)
 		(stroke
@@ -8361,7 +8347,7 @@
 	)
 	(rectangle
 		(start 193.0367 18.1467)
-		(end 337.1486 87.2347)
+		(end 339.852 87.2347)
 		(stroke
 			(width 0)
 			(type default)
@@ -9030,26 +9016,6 @@
 			(justify left bottom)
 		)
 		(uuid "fe57f593-a6cd-4182-95fe-b4972cbfe436")
-	)
-	(text_box "i believe this is the correct way to debounce a button. if its not pleasssssse let me know"
-		(exclude_from_sim no)
-		(at 143.51 124.46 0)
-		(size 26.67 10.16)
-		(margins 0.9525 0.9525 0.9525 0.9525)
-		(stroke
-			(width 0)
-			(type solid)
-		)
-		(fill
-			(type none)
-		)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left top)
-		)
-		(uuid "0e578e24-3bc8-4887-a51b-488a95867b56")
 	)
 	(text_box "Should i place test pads on the clock in/outs too?"
 		(exclude_from_sim no)
@@ -13670,7 +13636,7 @@
 		)
 		(uuid "08dd08ca-a448-4d35-9eaf-0d7a0ec42661")
 	)
-	(label "UART5_RX"
+	(label "STM-UART5_RX"
 		(at 39.37 46.99 180)
 		(effects
 			(font
@@ -14641,7 +14607,7 @@
 		)
 		(uuid "9a9d086b-827c-4065-b270-71cb5ed1dc99")
 	)
-	(label "UART5_TX"
+	(label "STM-UART5_TX"
 		(at 325.12 39.37 0)
 		(effects
 			(font
@@ -14681,7 +14647,7 @@
 		)
 		(uuid "a18d3a7b-d6ec-4177-93ed-08e633c26ca7")
 	)
-	(label "UART5_RX"
+	(label "STM-UART5_RX"
 		(at 325.12 36.83 0)
 		(effects
 			(font
@@ -14821,7 +14787,7 @@
 		)
 		(uuid "bc527691-f4fd-413d-a5bc-b1c806071974")
 	)
-	(label "UART5_TX"
+	(label "STM-UART5_TX"
 		(at 39.37 82.55 180)
 		(effects
 			(font
@@ -16519,7 +16485,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 322.58 105.41 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -16527,7 +16493,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "00000000-0000-0000-0000-00005ee41c60")
-		(property "Reference" "#PWR018"
+		(property "Reference" "#PWR18"
 			(at 322.58 109.22 0)
 			(effects
 				(font
@@ -16536,8 +16502,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 322.961 101.0158 0)
+		(property "Value" "+3V3"
+			(at 322.58 101.854 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16562,12 +16528,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 322.58 105.41 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -16576,14 +16543,14 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR018")
+					(reference "#PWR18")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 63.5 20.32 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -16591,7 +16558,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "00000000-0000-0000-0000-00005ee6658e")
-		(property "Reference" "#PWR01"
+		(property "Reference" "#PWR1"
 			(at 63.5 24.13 0)
 			(effects
 				(font
@@ -16600,8 +16567,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 63.881 15.9258 0)
+		(property "Value" "+3V3"
+			(at 63.5 16.764 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16626,12 +16593,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 63.5 20.32 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -16640,14 +16608,14 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR01")
+					(reference "#PWR1")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 153.67 101.6 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -16655,7 +16623,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "00000000-0000-0000-0000-00005ee820ea")
-		(property "Reference" "#PWR027"
+		(property "Reference" "#PWR27"
 			(at 153.67 105.41 0)
 			(effects
 				(font
@@ -16664,8 +16632,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 154.051 97.2058 0)
+		(property "Value" "+3V3"
+			(at 153.67 98.044 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16690,12 +16658,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 153.67 101.6 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -16704,7 +16673,7 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR027")
+					(reference "#PWR27")
 					(unit 1)
 				)
 			)
@@ -18143,7 +18112,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 137.16 179.07 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -18151,7 +18120,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "03f7d556-3b1f-49aa-bb90-caa105a5ce3a")
-		(property "Reference" "#PWR048"
+		(property "Reference" "#PWR48"
 			(at 137.16 182.88 0)
 			(effects
 				(font
@@ -18160,8 +18129,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 137.541 174.6758 0)
+		(property "Value" "+3V3"
+			(at 137.16 175.514 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -18186,12 +18155,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 137.16 179.07 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -18200,7 +18170,7 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR048")
+					(reference "#PWR48")
 					(unit 1)
 				)
 			)
@@ -19051,7 +19021,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 118.11 187.96 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -19059,7 +19029,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "15fe407f-2058-4961-8253-cdff7c885e62")
-		(property "Reference" "#PWR053"
+		(property "Reference" "#PWR53"
 			(at 118.11 191.77 0)
 			(effects
 				(font
@@ -19068,8 +19038,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 118.491 183.5658 0)
+		(property "Value" "+3V3"
+			(at 118.11 184.404 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19094,12 +19064,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 118.11 187.96 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -19108,14 +19079,14 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR053")
+					(reference "#PWR53")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 157.48 154.94 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -19123,7 +19094,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "168b6213-f3ee-4667-9115-5b588b94d592")
-		(property "Reference" "#PWR037"
+		(property "Reference" "#PWR37"
 			(at 157.48 158.75 0)
 			(effects
 				(font
@@ -19132,8 +19103,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 157.861 150.5458 0)
+		(property "Value" "+3V3"
+			(at 157.48 151.384 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -19158,12 +19129,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 157.48 154.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -19172,7 +19144,7 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR037")
+					(reference "#PWR37")
 					(unit 1)
 				)
 			)
@@ -20126,7 +20098,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 157.48 185.42 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -20134,7 +20106,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "3e0cce1d-16d1-45db-9147-3f8f52f7dc21")
-		(property "Reference" "#PWR052"
+		(property "Reference" "#PWR52"
 			(at 157.48 189.23 0)
 			(effects
 				(font
@@ -20143,8 +20115,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 157.861 181.0258 0)
+		(property "Value" "+3V3"
+			(at 157.48 181.864 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20169,12 +20141,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 157.48 185.42 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -20183,71 +20156,7 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR052")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "Graphic:SYM_Arrow45_Small")
-		(at 154.94 121.92 180)
-		(unit 1)
-		(exclude_from_sim yes)
-		(in_bom no)
-		(on_board no)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "3f96a0a3-843e-4445-a882-ce06155c697e")
-		(property "Reference" "#SYM6"
-			(at 150.622 122.936 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "SYM_Arrow45_Small"
-			(at 154.94 119.634 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Footprint" ""
-			(at 154.94 121.92 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "~"
-			(at 154.94 121.92 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Filled 45° arrow, 160mil"
-			(at 154.94 121.92 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(instances
-			(project "senior_design_pcb"
-				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#SYM6")
+					(reference "#PWR52")
 					(unit 1)
 				)
 			)
@@ -20953,7 +20862,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 267.97 133.35 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -20961,7 +20870,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "5f1af7fc-f8dc-4acb-8234-67c800b86428")
-		(property "Reference" "#PWR016"
+		(property "Reference" "#PWR16"
 			(at 267.97 137.16 0)
 			(effects
 				(font
@@ -20970,8 +20879,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 268.351 128.9558 0)
+		(property "Value" "+3V3"
+			(at 267.97 129.794 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20996,12 +20905,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 267.97 133.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -21010,7 +20920,7 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR016")
+					(reference "#PWR16")
 					(unit 1)
 				)
 			)
@@ -22507,7 +22417,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 137.16 148.59 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -22515,7 +22425,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "975512d5-63f0-4d4c-a9fb-12321cad5223")
-		(property "Reference" "#PWR030"
+		(property "Reference" "#PWR30"
 			(at 137.16 152.4 0)
 			(effects
 				(font
@@ -22524,8 +22434,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 137.541 144.1958 0)
+		(property "Value" "+3V3"
+			(at 137.16 145.034 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22550,12 +22460,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 137.16 148.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -22564,7 +22475,7 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR030")
+					(reference "#PWR30")
 					(unit 1)
 				)
 			)
@@ -23757,7 +23668,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 190.5 151.13 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -23765,7 +23676,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "cf2ce40d-3061-4ee7-991f-54e193cafb8f")
-		(property "Reference" "#PWR032"
+		(property "Reference" "#PWR32"
 			(at 190.5 154.94 0)
 			(effects
 				(font
@@ -23774,8 +23685,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 190.881 146.7358 0)
+		(property "Value" "+3V3"
+			(at 190.5 147.574 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23800,12 +23711,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 190.5 151.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -23814,7 +23726,7 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR032")
+					(reference "#PWR32")
 					(unit 1)
 				)
 			)
@@ -25459,7 +25371,7 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 118.11 157.48 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -25467,7 +25379,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "fb8e5fe6-b976-4b09-9a0d-c64701bc64ec")
-		(property "Reference" "#PWR039"
+		(property "Reference" "#PWR39"
 			(at 118.11 161.29 0)
 			(effects
 				(font
@@ -25476,8 +25388,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 118.491 153.0858 0)
+		(property "Value" "+3V3"
+			(at 118.11 153.924 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -25502,12 +25414,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 118.11 157.48 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -25516,14 +25429,14 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR039")
+					(reference "#PWR39")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "power:+3V0")
+		(lib_id "power:+3V3")
 		(at 186.69 181.61 0)
 		(unit 1)
 		(exclude_from_sim no)
@@ -25531,7 +25444,7 @@
 		(on_board yes)
 		(dnp no)
 		(uuid "fbec7621-a087-4f95-aa69-f60d3c92f4fa")
-		(property "Reference" "#PWR031"
+		(property "Reference" "#PWR31"
 			(at 186.69 185.42 0)
 			(effects
 				(font
@@ -25540,8 +25453,8 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+3V0"
-			(at 187.071 177.2158 0)
+		(property "Value" "+3V3"
+			(at 186.69 178.054 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -25566,12 +25479,13 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Power symbol creates a global label with name \"+3V3\""
 			(at 186.69 181.61 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(pin "1"
@@ -25580,7 +25494,7 @@
 		(instances
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
-					(reference "#PWR031")
+					(reference "#PWR31")
 					(unit 1)
 				)
 			)
