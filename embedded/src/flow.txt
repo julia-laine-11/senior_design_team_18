@@ -1,0 +1,332 @@
+#include "stm32f0xx.h"
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+//===========================================================================
+// DEFINITIONS
+//===========================================================================
+
+// Matrix
+#define MATRIX_HEIGHT       32
+#define MATRIX_WIDTH        32
+#define MATRIX_SCAN_ROWS    (MATRIX_HEIGHT / 2)
+
+// Game
+#define GOAL_COOLDOWN_TICKS 200 // 2 seconds
+
+// Sprites
+#define CHAR_HEIGHT 5
+#define CHAR_WIDTH 4
+#define NUM_HEIGHT 14
+#define NUM_WIDTH 10
+
+// Colors
+#define COLOR_BLACK   0
+#define COLOR_RED     1
+#define COLOR_BLUE    2
+#define COLOR_PURPLE  3
+#define COLOR_GREEN   4
+#define COLOR_YELLOW  5
+#define COLOR_CYAN    6
+#define COLOR_WHITE   7
+
+//===========================================================================
+// GLOBAL VARIABLES
+//===========================================================================
+
+volatile int player_score = 0;
+volatile int bot_score = 0;
+volatile int sensor_cooldown = 0;
+volatile bool game_active = false;
+
+// Display Buffer
+volatile uint8_t canvas[MATRIX_SCAN_ROWS][MATRIX_WIDTH];
+static volatile uint8_t current_display_row = 0;
+
+//===========================================================================
+// HELPER FUNCTIONS
+//===========================================================================
+
+void nano_wait(unsigned int n) {
+    asm(    "        mov r0,%0\n"
+            "repeat: sub r0,#83\n"
+            "        bgt repeat\n" : : "r"(n) : "r0", "cc");
+}
+
+void delay_ms(uint32_t ms) {
+    for (uint32_t i = 0; i < ms; i++) {
+        SysTick->LOAD = 48000 - 1; 
+        SysTick->VAL = 0;
+        SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
+        while (!(SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk));
+        SysTick->CTRL = 0;
+    }
+}
+
+// Ensure all GPIO ports used are enabled
+void enable_ports(void) {
+    RCC->AHBENR |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN;
+}
+
+//===========================================================================
+// HARDWARE SETUP
+//===========================================================================
+
+// PA0 (Reset), PA1 (Start)
+void init_buttons(void) {
+    // PA0, PA1 as Input (Mode 00)
+    GPIOA->MODER &= ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER1);
+    // Pull-down (10) to avoid floating inputs
+    GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR0 | GPIO_PUPDR_PUPDR1);
+    GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR0_1 | GPIO_PUPDR_PUPDR1_1);
+}
+
+// PB0 (Player Sensor), PB1 (Bot Sensor)
+void init_sensors(void) {
+    // PB0, PB1 as Input (Mode 00)
+    GPIOB->MODER &= ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER1);
+    // Pull-down (10)
+    GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPDR0 | GPIO_PUPDR_PUPDR1);
+    GPIOB->PUPDR |= (GPIO_PUPDR_PUPDR0_1 | GPIO_PUPDR_PUPDR1_1);
+}
+
+// PC0-PC13 for Matrix Control
+void init_matrix_gpio(void) {
+    GPIOC->MODER &= ~(0x0CFFFFFF); // Clear bits for PC0-PC13
+    GPIOC->MODER |= (0x4555555);   // Set Output (01) for PC0-PC11, PC13
+    
+    GPIOC->OSPEEDR |= 0xFFFFFFFF;  // High Speed
+    GPIOC->OTYPER &= ~(0xFFFF);    // Push-Pull
+    GPIOC->PUPDR  &= ~0xFFFFFFFF;  // No Pull
+    
+    GPIOC->BSRR = (1U << 11); // OE High (Disable)
+    GPIOC->BRR  = 0x0FFF;     // Reset Colors/Addr/LAT
+}
+
+// Timer 6: Matrix Refresh
+void init_refresh_timer(void) {
+    RCC->APB1ENR |= RCC_APB1ENR_TIM6EN;
+    TIM6->PSC = 48 - 1;
+    TIM6->ARR = 625 - 1; // ~1500Hz interrupt
+    TIM6->DIER |= TIM_DIER_UIE;
+    NVIC_SetPriority(TIM6_DAC_IRQn, 0); // High Priority
+    NVIC_EnableIRQ(TIM6_DAC_IRQn);
+    TIM6->CR1 |= TIM_CR1_CEN;
+}
+
+// Timer 14: Game Logic (100Hz)
+void setup_tim14(void) {
+    RCC->APB1ENR |= RCC_APB1ENR_TIM14EN;
+    TIM14->PSC = 4800 - 1; 
+    TIM14->ARR = 100 - 1; 
+    TIM14->DIER |= TIM_DIER_UIE;
+    NVIC_SetPriority(TIM14_IRQn, 1);
+    NVIC_EnableIRQ(TIM14_IRQn);
+    TIM14->CR1 |= TIM_CR1_CEN;
+}
+
+//===========================================================================
+// GRAPHICS
+//===========================================================================
+
+void SetPixel(int x, int y, uint8_t color_value) {
+    if (x < 0 || x >= MATRIX_WIDTH || y < 0 || y >= MATRIX_HEIGHT) return;
+    
+    uint8_t row = y % MATRIX_SCAN_ROWS;
+    uint8_t col = x;
+    color_value &= 0x7;
+
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+
+    uint8_t current = canvas[row][col];
+    if (y < MATRIX_SCAN_ROWS) {
+        canvas[row][col] = (current & ~0x07) | color_value;
+    } else {
+        canvas[row][col] = (current & ~0x38) | (color_value << 3);
+    }
+
+    if (!primask) __enable_irq();
+}
+
+void ClearScreen(void) {
+    for (int r = 0; r < MATRIX_SCAN_ROWS; r++) {
+        for (int c = 0; c < MATRIX_WIDTH; c++) {
+            canvas[r][c] = 0;
+        }
+    }
+}
+
+void DrawSprite(int x, int y, int h, int w, const uint8_t sprite[][w]) {
+    for (int r = 0; r < h; r++) {
+        for (int c = 0; c < w; c++) {
+            if (sprite[r][c] != 0) SetPixel(x + c, y + r, sprite[r][c]);
+        }
+    }
+}
+
+//===========================================================================
+// SPRITES
+//===========================================================================
+
+const uint8_t sprite_A[CHAR_HEIGHT][CHAR_WIDTH] = {
+    {0,7,7,0}, {7,0,0,7}, {7,7,7,7}, {7,0,0,7}, {7,0,0,7}
+};
+const uint8_t sprite_I[CHAR_HEIGHT][CHAR_WIDTH] = {
+    {7,7,7,7}, {0,7,7,0}, {0,7,7,0}, {0,7,7,0}, {7,7,7,7}
+};
+const uint8_t sprite_R[CHAR_HEIGHT][CHAR_WIDTH] = {
+    {7,7,7,0}, {7,0,0,7}, {7,7,7,0}, {7,0,7,0}, {7,0,0,7}
+};
+const uint8_t sprite_H[CHAR_HEIGHT][CHAR_WIDTH] = {
+    {7,0,0,7}, {7,0,0,7}, {7,7,7,7}, {7,0,0,7}, {7,0,0,7}
+};
+// Correct K and Y Sprites to fix "HHO" text
+const uint8_t sprite_K[CHAR_HEIGHT][CHAR_WIDTH] = {
+    {7,0,0,7}, {7,0,7,0}, {7,7,0,0}, {7,0,7,0}, {7,0,0,7}
+};
+const uint8_t sprite_Y[CHAR_HEIGHT][CHAR_WIDTH] = {
+    {7,0,0,7}, {7,0,0,7}, {0,7,7,0}, {0,7,0,0}, {0,7,0,0}
+};
+
+// Numbers
+const uint8_t sprite_0[NUM_HEIGHT][NUM_WIDTH] = {
+    {0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},
+    {0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},
+    {0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},
+    {0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,0,0}
+};
+// (Placeholders - ensure you paste your full number sprites here)
+const uint8_t sprite_1[NUM_HEIGHT][NUM_WIDTH] = {{0}};
+const uint8_t sprite_2[NUM_HEIGHT][NUM_WIDTH] = {{0}};
+const uint8_t sprite_3[NUM_HEIGHT][NUM_WIDTH] = {{0}};
+const uint8_t sprite_4[NUM_HEIGHT][NUM_WIDTH] = {{0}};
+const uint8_t sprite_5[NUM_HEIGHT][NUM_WIDTH] = {{0}};
+const uint8_t sprite_6[NUM_HEIGHT][NUM_WIDTH] = {{0}};
+
+const uint8_t (*sprite_numbers[])[NUM_WIDTH] = {
+    sprite_0, sprite_1, sprite_2, sprite_3, sprite_4, sprite_5, sprite_6, sprite_0, sprite_0, sprite_0
+};
+
+//===========================================================================
+// INTERRUPTS
+//===========================================================================
+
+// Matrix Scan (Fixed flickering)
+void TIM6_DAC_IRQHandler(void) {
+    if (TIM6->SR & TIM_SR_UIF) {
+        TIM6->SR &= ~TIM_SR_UIF;
+
+        for (int col = 0; col < MATRIX_WIDTH; col++) {
+            uint8_t packed = canvas[current_display_row][col];
+            uint8_t top = packed & 0x07;
+            uint8_t bot = (packed >> 3) & 0x07;
+            
+            // Map RGB bits to PC0-PC5
+            uint32_t bits = 0;
+            if (top & 1) bits |= (1<<0); // R1
+            if (top & 2) bits |= (1<<1); // B1
+            if (top & 4) bits |= (1<<2); // G1
+            if (bot & 1) bits |= (1<<3); // R2
+            if (bot & 2) bits |= (1<<4); // B2
+            if (bot & 4) bits |= (1<<5); // G2
+            
+            GPIOC->ODR = (GPIOC->ODR & ~0x3F) | bits;
+
+            // Pulse CLK (PC13) - Fast Pulse
+            GPIOC->BSRR = (1U << 13);
+            // No nano_wait here! The CPU steps are delay enough for HUB75 at 48MHz
+            GPIOC->BRR  = (1U << 13);
+        }
+
+        // Disable OE (PC11 High)
+        GPIOC->BSRR = (1U << 11);
+
+        // Latch Data (PC10 Pulse)
+        GPIOC->BSRR = (1U << 10);
+        GPIOC->BRR  = (1U << 10);
+
+        // Set Address (PC6-PC9)
+        uint32_t addr = (current_display_row & 0xF) << 6;
+        GPIOC->ODR = (GPIOC->ODR & ~(0xF << 6)) | addr;
+
+        // Enable OE (PC11 Low)
+        GPIOC->BRR = (1U << 11);
+
+        current_display_row = (current_display_row + 1) % MATRIX_SCAN_ROWS;
+    }
+}
+
+// Game Logic
+void TIM14_IRQHandler(void) {
+    if (TIM14->SR & TIM_SR_UIF) {
+        TIM14->SR &= ~TIM_SR_UIF;
+
+        if (!game_active) return;
+
+        if (sensor_cooldown > 0) {
+            sensor_cooldown--;
+            return;
+        }
+
+        bool scored = false;
+        // Check PB0 (Player) and PB1 (Bot)
+        if (GPIOB->IDR & (1<<0)) {
+            player_score = (player_score + 1) % 10;
+            scored = true;
+        } 
+        else if (GPIOB->IDR & (1<<1)) {
+            bot_score = (bot_score + 1) % 10;
+            scored = true;
+        }
+
+        if (scored) sensor_cooldown = GOAL_COOLDOWN_TICKS;
+    }
+}
+
+//===========================================================================
+// MAIN
+//===========================================================================
+
+int main(void) {
+    enable_ports(); // Turn on GPIOA, GPIOB, GPIOC clocks
+    
+    init_matrix_gpio();
+    init_refresh_timer();
+    setup_tim14();
+    init_sensors(); // PB0, PB1
+    init_buttons(); // PA0, PA1
+
+    while (1) {
+        // PA1 = Start
+        if (GPIOA->IDR & (1<<1)) {
+            game_active = true;
+        }
+        // PA0 = Reset
+        if (GPIOA->IDR & (1<<0)) {
+            game_active = false;
+            player_score = 0;
+            bot_score = 0;
+        }
+
+        ClearScreen();
+
+        if (!game_active) {
+            // Start Screen: "AIR HKY"
+            DrawSprite(2, 4, CHAR_HEIGHT, CHAR_WIDTH, sprite_A);
+            DrawSprite(8, 4, CHAR_HEIGHT, CHAR_WIDTH, sprite_I);
+            DrawSprite(14, 4, CHAR_HEIGHT, CHAR_WIDTH, sprite_R);
+            DrawSprite(2, 12, CHAR_HEIGHT, CHAR_WIDTH, sprite_H);
+            DrawSprite(8, 12, CHAR_HEIGHT, CHAR_WIDTH, sprite_K); // Fixed K
+            DrawSprite(14, 12, CHAR_HEIGHT, CHAR_WIDTH, sprite_Y); // Fixed Y
+        } else {
+            // Game Screen
+            DrawSprite(2, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[player_score]);
+            DrawSprite(18, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[bot_score]);
+        }
+
+        delay_ms(50);
+    }
+}
