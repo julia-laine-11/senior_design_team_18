@@ -9693,16 +9693,6 @@
 	)
 	(wire
 		(pts
-			(xy 100.33 148.59) (xy 121.92 148.59)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "05faf7ee-bac2-4d3b-b38b-f182bd507d4b")
-	)
-	(wire
-		(pts
 			(xy 273.05 66.04) (xy 285.75 66.04)
 		)
 		(stroke
@@ -10603,7 +10593,7 @@
 	)
 	(wire
 		(pts
-			(xy 120.65 146.05) (xy 121.92 146.05)
+			(xy 123.19 146.05) (xy 124.46 146.05)
 		)
 		(stroke
 			(width 0)
@@ -12223,6 +12213,16 @@
 	)
 	(wire
 		(pts
+			(xy 100.33 148.59) (xy 124.46 148.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "af50fce3-e7db-4ab5-a59a-7ab6cf5f119b")
+	)
+	(wire
+		(pts
 			(xy 290.83 80.01) (xy 290.83 72.39)
 		)
 		(stroke
@@ -13592,7 +13592,7 @@
 		(uuid "09686765-c084-448b-8025-03ec7e15aea0")
 	)
 	(label "USER_JOYSTICK-BUTTON"
-		(at 120.65 148.59 180)
+		(at 123.19 148.59 180)
 		(effects
 			(font
 				(size 0.762 0.762)
@@ -14522,7 +14522,7 @@
 		(uuid "9587a8ba-1855-4bac-88cf-9366faf4256f")
 	)
 	(label "USER_JOYSTICK-X"
-		(at 121.92 151.13 180)
+		(at 124.46 151.13 180)
 		(effects
 			(font
 				(size 1.016 1.016)
@@ -15072,7 +15072,7 @@
 		(uuid "e766fcf9-1706-4e3d-8cec-57397230212a")
 	)
 	(label "USER_JOYSTICK-Y"
-		(at 121.92 153.67 180)
+		(at 124.46 153.67 180)
 		(effects
 			(font
 				(size 1.016 1.016)
@@ -15277,7 +15277,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 214.63 222.25 0)
 			(effects
 				(font
@@ -15612,7 +15612,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "http://www.st.com/st-web-ui/static/active/en/resource/technical/document/datasheet/CD00000544.pdf"
+		(property "Datasheet" "https://www.st.com/content/ccc/resource/technical/document/datasheet/99/3b/7d/91/91/51/4b/be/CD00000544.pdf/files/CD00000544.pdf/jcr:content/translations/en.CD00000544.pdf"
 			(at 318.77 115.57 0)
 			(effects
 				(font
@@ -15692,7 +15692,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://datasheet.lcsc.com/szlcsc/Samsung-Electro-Mechanics-CL21C101JBANNNC_C1790.pdf"
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 306.07 113.03 0)
 			(effects
 				(font
@@ -16240,7 +16240,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "http://www.st.com/st-web-ui/static/active/en/resource/technical/document/datasheet/DM00115237.pdf"
+		(property "Datasheet" "https://www.st.com/content/ccc/resource/technical/document/datasheet/95/3c/2e/5b/21/09/45/a6/DM00115237.pdf/files/DM00115237.pdf/jcr:content/translations/en.DM00115237.pdf"
 			(at 232.41 152.4 0)
 			(effects
 				(font
@@ -16763,7 +16763,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.seielect.com/catalog/SEI-RMCF_RMCP.pdf"
 			(at 160.02 62.23 0)
 			(effects
 				(font
@@ -16840,7 +16840,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://look.ams-osram.com/m/330c725e4ebb09ab/original/LS-R976.pdf"
 			(at 160.02 69.85 90)
 			(effects
 				(font
@@ -16982,7 +16982,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://datasheet.lcsc.com/szlcsc/Uniroyal-Elec-0805W8F3001T5E_C17661.pdf"
+		(property "Datasheet" "https://www.susumu.co.jp/common/pdf/n_catalog_partition05_en.pdf"
 			(at 349.25 113.03 0)
 			(effects
 				(font
@@ -17059,7 +17059,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://look.ams-osram.com/m/330c725e4ebb09ab/original/LS-R976.pdf"
 			(at 349.25 119.38 90)
 			(effects
 				(font
@@ -17201,7 +17201,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://search.murata.co.jp/Ceramy/image/img/A01X/G101/ENG/GJM1555C1H150JB01-01.pdf"
 			(at 297.18 214.63 0)
 			(effects
 				(font
@@ -17692,7 +17692,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://datasheet.lcsc.com/szlcsc/Samsung-Electro-Mechanics-CL21C101JBANNNC_C1790.pdf"
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 326.39 113.03 0)
 			(effects
 				(font
@@ -17769,7 +17769,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 214.63 229.87 0)
 			(effects
 				(font
@@ -17846,7 +17846,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://search.murata.co.jp/Ceramy/image/img/A01X/G101/ENG/GJM1555C1H150JB01-01.pdf"
 			(at 325.12 214.63 0)
 			(effects
 				(font
@@ -17921,7 +17921,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 186.69 121.92 0)
 			(effects
 				(font
@@ -17998,7 +17998,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 256.54 255.27 0)
 			(effects
 				(font
@@ -18335,7 +18335,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 100.33 120.65 0)
 			(effects
 				(font
@@ -18412,7 +18412,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/KEM_C1002_X7R_SMD"
 			(at 350.52 146.05 0)
 			(effects
 				(font
@@ -18489,7 +18489,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 278.13 76.2 0)
 			(effects
 				(font
@@ -18709,7 +18709,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 256.54 229.87 0)
 			(effects
 				(font
@@ -18916,7 +18916,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.seielect.com/catalog/SEI-RNCP.pdf"
 			(at 147.32 177.8 0)
 			(effects
 				(font
@@ -18985,7 +18985,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 280.67 40.64 0)
 			(effects
 				(font
@@ -19128,7 +19128,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "ECS-80-8-33Q-ADS"
+		(property "Datasheet" "https://ecsxtal.com/store/pdf/ECS-2520MV.pdf"
 			(at 299.72 207.01 0)
 			(effects
 				(font
@@ -19213,7 +19213,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 256.54 222.25 0)
 			(effects
 				(font
@@ -19290,7 +19290,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.seielect.com/catalog/SEI-RMCF_RMCP.pdf"
 			(at 226.06 27.94 0)
 			(effects
 				(font
@@ -19434,7 +19434,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "2SA1873-GRTE85L_F"
+		(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/4492/2SA1873-%28G%2CY%29.pdf"
 			(at 97.028 240.792 0)
 			(effects
 				(font
@@ -19643,7 +19643,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 148.59 153.67 0)
 			(effects
 				(font
@@ -19720,7 +19720,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "KMR241GLFS"
+		(property "Datasheet" "https://www.ckswitches.com/media/1479/kmr2.pdf"
 			(at 189.2734 229.327 0)
 			(effects
 				(font
@@ -19796,7 +19796,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "KMR241GLFS"
+		(property "Datasheet" "https://www.ckswitches.com/media/1479/kmr2.pdf"
 			(at 231.1834 229.327 0)
 			(effects
 				(font
@@ -19937,7 +19937,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 100.33 152.4 0)
 			(effects
 				(font
@@ -20143,7 +20143,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "2SA1873-GRTE85L_F"
+		(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/4492/2SA1873-%28G%2CY%29.pdf"
 			(at 146.812 240.792 0)
 			(effects
 				(font
@@ -20253,7 +20253,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 120.65 146.05 0)
+		(at 123.19 146.05 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -20261,7 +20261,7 @@
 		(dnp no)
 		(uuid "3e0cce1d-16d1-45db-9147-3f8f52f7dc21")
 		(property "Reference" "#PWR52"
-			(at 120.65 149.86 0)
+			(at 123.19 149.86 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20270,7 +20270,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 120.65 142.494 0)
+			(at 123.19 142.494 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20278,7 +20278,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 120.65 146.05 0)
+			(at 123.19 146.05 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20287,7 +20287,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 120.65 146.05 0)
+			(at 123.19 146.05 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20296,7 +20296,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 120.65 146.05 0)
+			(at 123.19 146.05 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -20353,7 +20353,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://look.ams-osram.com/m/330c725e4ebb09ab/original/LS-R976.pdf"
 			(at 222.25 30.48 90)
 			(effects
 				(font
@@ -20430,7 +20430,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 270.51 193.04 0)
 			(effects
 				(font
@@ -20507,7 +20507,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "KMR241GLFS"
+		(property "Datasheet" "https://www.ckswitches.com/media/1479/kmr2.pdf"
 			(at 231.1834 254.727 0)
 			(effects
 				(font
@@ -20584,7 +20584,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://look.ams-osram.com/m/2da6f2ceeebf8fac/original/LG-R971.pdf"
 			(at 186.69 143.51 90)
 			(effects
 				(font
@@ -20659,7 +20659,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.laird.com/document/datasheet/hz0805e601r-10-datasheet"
 			(at 345.44 139.7 0)
 			(effects
 				(font
@@ -20932,7 +20932,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
 			(at 160.02 116.84 0)
 			(effects
 				(font
@@ -21019,7 +21019,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 293.37 146.05 0)
 			(effects
 				(font
@@ -21162,7 +21162,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
 			(at 58.42 137.16 0)
 			(effects
 				(font
@@ -21232,7 +21232,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 193.04 143.51 0)
 			(effects
 				(font
@@ -21309,7 +21309,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 214.63 247.65 0)
 			(effects
 				(font
@@ -21648,7 +21648,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 325.12 146.05 0)
 			(effects
 				(font
@@ -21691,7 +21691,7 @@
 	)
 	(symbol
 		(lib_id "Connector:Conn_01x05_Socket")
-		(at 127 151.13 0)
+		(at 129.54 151.13 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -21699,7 +21699,7 @@
 		(dnp no)
 		(uuid "61fa520a-78cc-4013-99f9-04c7ce63117e")
 		(property "Reference" "J12"
-			(at 131.064 140.462 90)
+			(at 133.604 140.462 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21708,7 +21708,7 @@
 			)
 		)
 		(property "Value" "1x05JST - Joystick2 connector (gamer)"
-			(at 128.016 138.43 90)
+			(at 130.556 138.43 90)
 			(effects
 				(font
 					(size 0.762 0.762)
@@ -21717,7 +21717,7 @@
 			)
 		)
 		(property "Footprint" "Connector_JST:JST_EH_B5B-EH-A_1x05_P2.50mm_Vertical"
-			(at 127 151.13 0)
+			(at 129.54 151.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21725,8 +21725,8 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
-			(at 127 151.13 0)
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
+			(at 129.54 151.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21735,7 +21735,7 @@
 			)
 		)
 		(property "Description" "Joystick2 connector"
-			(at 127 151.13 0)
+			(at 129.54 151.13 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21744,7 +21744,7 @@
 			)
 		)
 		(property "LCSC" ""
-			(at 127 151.13 90)
+			(at 129.54 151.13 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21813,7 +21813,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 76.2 43.18 0)
 			(effects
 				(font
@@ -21878,7 +21878,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "2SA1873-GRTE85L_F"
+		(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/4492/2SA1873-%28G%2CY%29.pdf"
 			(at 147.828 203.962 0)
 			(effects
 				(font
@@ -21957,7 +21957,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/609/CL21B105KBFNNNE_Spec.pdf"
 			(at 341.63 146.05 0)
 			(effects
 				(font
@@ -22175,7 +22175,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
 			(at 58.42 113.03 0)
 			(effects
 				(font
@@ -22309,7 +22309,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 148.59 146.05 0)
 			(effects
 				(font
@@ -22452,7 +22452,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 76.2 52.07 0)
 			(effects
 				(font
@@ -22775,7 +22775,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
 			(at 116.84 190.5 0)
 			(effects
 				(font
@@ -22848,7 +22848,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.susumu.co.jp/dl/?filename=n_catalog_partition01_en.pdf&type=application/pdf"
 			(at 213.36 81.28 0)
 			(effects
 				(font
@@ -22989,7 +22989,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.seielect.com/catalog/SEI-RMCF_RMCP.pdf"
 			(at 240.03 46.99 0)
 			(effects
 				(font
@@ -23067,7 +23067,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://search.murata.co.jp/Ceramy/image/img/A01X/G101/ENG/GRM21BR71A475KE51-01.pdf"
 			(at 316.23 146.05 0)
 			(effects
 				(font
@@ -23208,7 +23208,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/6025/302-S.pdf"
 			(at 77.47 148.59 0)
 			(effects
 				(font
@@ -23328,7 +23328,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "https://www.st.com/resource/en/datasheet/usblc6-2sc6y.pdf"
+		(property "Datasheet" "https://www.st.com/content/ccc/resource/technical/document/datasheet/group0/94/15/6c/58/ba/91/46/42/DM00055262/files/DM00055262.pdf/jcr:content/translations/en.DM00055262.pdf"
 			(at 243.84 66.04 0)
 			(effects
 				(font
@@ -23538,7 +23538,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 337.82 44.45 0)
 			(effects
 				(font
@@ -23681,7 +23681,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/PYU-RC_GROUP_51_ROHS_L"
 			(at 256.54 247.65 0)
 			(effects
 				(font
@@ -23821,7 +23821,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.susumu.co.jp/dl/?filename=n_catalog_partition01_en.pdf&type=application/pdf"
 			(at 213.36 85.09 0)
 			(effects
 				(font
@@ -23865,7 +23865,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 121.92 156.21 0)
+		(at 124.46 156.21 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -23873,7 +23873,7 @@
 		(dnp no)
 		(uuid "acee10a4-6da8-42a9-855d-fb14f4e1ea84")
 		(property "Reference" "#PWR056"
-			(at 121.92 162.56 0)
+			(at 124.46 162.56 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23882,7 +23882,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 122.047 160.6042 0)
+			(at 124.587 160.6042 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23891,7 +23891,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 121.92 156.21 0)
+			(at 124.46 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23900,7 +23900,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 121.92 156.21 0)
+			(at 124.46 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23909,7 +23909,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 121.92 156.21 0)
+			(at 124.46 156.21 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -23964,7 +23964,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://ecsxtal.com/store/pdf/ECX-.327-CDX-1293.pdf"
 			(at 311.15 177.8 0)
 			(effects
 				(font
@@ -24073,7 +24073,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 246.38 34.29 0)
 			(effects
 				(font
@@ -24152,7 +24152,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 76.2 69.85 0)
 			(effects
 				(font
@@ -24293,7 +24293,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.seielect.com/catalog/SEI-RNCP.pdf"
 			(at 96.52 213.36 0)
 			(effects
 				(font
@@ -24362,7 +24362,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 76.2 60.96 0)
 			(effects
 				(font
@@ -24490,7 +24490,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 100.33 113.03 0)
 			(effects
 				(font
@@ -24697,7 +24697,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://ftdichip.com/wp-content/uploads/2020/08/DS_FT232R.pdf"
 			(at 294.64 33.02 0)
 			(effects
 				(font
@@ -25038,7 +25038,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
 			(at 140.97 144.78 0)
 			(effects
 				(font
@@ -25116,7 +25116,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 100.33 144.78 0)
 			(effects
 				(font
@@ -25388,7 +25388,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 300.99 146.05 0)
 			(effects
 				(font
@@ -25465,7 +25465,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://look.ams-osram.com/m/330c725e4ebb09ab/original/LS-R976.pdf"
 			(at 276.86 193.04 90)
 			(effects
 				(font
@@ -25543,7 +25543,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
 			(at 82.55 116.84 0)
 			(effects
 				(font
@@ -25628,7 +25628,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.seielect.com/catalog/SEI-RMCF_RMCP.pdf"
 			(at 248.92 44.45 0)
 			(effects
 				(font
@@ -25706,7 +25706,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 308.61 146.05 0)
 			(effects
 				(font
@@ -25785,7 +25785,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.seielect.com/catalog/SEI-RNCP.pdf"
 			(at 147.32 213.36 0)
 			(effects
 				(font
@@ -25919,7 +25919,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://yageogroup.com/content/datasheet/asset/file/KEM_C1002_X7R_SMD"
 			(at 236.22 34.29 0)
 			(effects
 				(font
@@ -25995,7 +25995,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.laird.com/document/datasheet/hz0805e601r-10-datasheet"
 			(at 242.57 27.94 0)
 			(effects
 				(font
@@ -26072,7 +26072,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://datasheets.kyocera-avx.com/KGM_X7R.pdf"
 			(at 214.63 255.27 0)
 			(effects
 				(font
@@ -26217,7 +26217,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://www.sameskydevices.com/product/resource/uj20-c-h-c-4-smt-tr.pdf"
 			(at 205.74 36.83 0)
 			(effects
 				(font
@@ -26368,7 +26368,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/609/CL21B105KBFNNNE_Spec.pdf"
 			(at 358.14 146.05 0)
 			(effects
 				(font
@@ -26445,7 +26445,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://s3.amazonaws.com/catalogspreads-pdf/PAGE122%20.100%20SBH11%20SERIES%20MALE%20BOX%20HDR%20ST%20RA%20SMT.pdf"
 			(at 161.29 43.18 0)
 			(effects
 				(font
@@ -26597,7 +26597,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "KMR241GLFS"
+		(property "Datasheet" "https://www.ckswitches.com/media/1479/kmr2.pdf"
 			(at 189.2734 254.727 0)
 			(effects
 				(font
@@ -26672,7 +26672,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
 			(at 90.17 190.5 0)
 			(effects
 				(font
@@ -26747,7 +26747,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://search.murata.co.jp/Ceramy/image/img/A01X/G101/ENG/GRM21BR71A475KE51-01.pdf"
 			(at 332.74 146.05 0)
 			(effects
 				(font
@@ -27020,7 +27020,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" "https://www.jst-mfg.com/product/pdf/eng/ePH.pdf"
 			(at 127 119.38 0)
 			(effects
 				(font
@@ -27107,7 +27107,7 @@
 				(hide yes)
 			)
 		)
-		(property "Datasheet" ""
+		(property "Datasheet" "https://search.murata.co.jp/Ceramy/image/img/A01X/G101/ENG/GRM21BR71A475KE51-01.pdf"
 			(at 257.81 34.29 0)
 			(effects
 				(font
