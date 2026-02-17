@@ -71,10 +71,15 @@ void init_start_reset(void) {
 }
 
 void init_sensors(void) {
-    // PA11, PA12 as Input - Pull Down
+    // PA11, PA12 as Input
     GPIOA->MODER &= ~(GPIO_MODER_MODER11 | GPIO_MODER_MODER12);
+    
+    // Reset Pull-Up/Pull-Down bits
     GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR11 | GPIO_PUPDR_PUPDR12);
-    GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR11_1 | GPIO_PUPDR_PUPDR12_1);
+    
+    // SET PULL-UP (01 binary) instead of Pull-Down (10 binary)
+    // Using _0 suffix usually targets the first bit of the pair, creating '01'
+    GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR11_0 | GPIO_PUPDR_PUPDR12_0);
 }
 
 void init_matrix_gpio(void) {
@@ -271,6 +276,58 @@ void start_screen(void) {
         DrawSprite(27, 12, CHAR_HEIGHT, CHAR_WIDTH, sprite_R);  
 }
 
+// --- NEW DEFINITIONS ---
+#define TITLE_WIDTH  14
+#define COLON_WIDTH  4
+#define COLON_HEIGHT 14  // Matches NUM_HEIGHT
+
+// --- NEW SPRITES ---
+
+// "YOU" (Width 14, Height 5)
+const uint8_t sprite_word_YOU[CHAR_HEIGHT][TITLE_WIDTH] = {
+    {7,0,0,7, 0, 0,7,7,0, 0, 7,0,0,7}, // Y   O   U
+    {7,0,0,7, 0, 7,0,0,7, 0, 7,0,0,7},
+    {0,7,7,0, 0, 7,0,0,7, 0, 7,0,0,7},
+    {0,0,7,0, 0, 7,0,0,7, 0, 7,0,0,7},
+    {0,0,7,0, 0, 0,7,7,0, 0, 0,7,7,0}
+};
+
+// "BOT" (Width 14, Height 5)
+const uint8_t sprite_word_BOT[CHAR_HEIGHT][TITLE_WIDTH] = {
+    {7,7,7,0, 0, 0,7,7,0, 0, 7,7,7,7}, // B   O   T
+    {7,0,0,7, 0, 7,0,0,7, 0, 0,7,7,0},
+    {7,7,7,0, 0, 7,0,0,7, 0, 0,7,7,0},
+    {7,0,0,7, 0, 7,0,0,7, 0, 0,7,7,0},
+    {7,7,7,0, 0, 0,7,7,0, 0, 0,7,7,0}
+};
+
+// "::" (Width 4, Height 14) - Vertically Centered relative to numbers
+const uint8_t sprite_colon[COLON_HEIGHT][COLON_WIDTH] = {
+    {0,0,0,0},
+    {0,0,0,0},
+    {0,0,0,0},
+    {0,0,0,0},
+    {0,7,7,0}, // Top Dot
+    {0,7,7,0},
+    {0,0,0,0},
+    {0,0,0,0}, // Gap
+    {0,7,7,0}, // Bottom Dot
+    {0,7,7,0},
+    {0,0,0,0},
+    {0,0,0,0},
+    {0,0,0,0},
+    {0,0,0,0}
+};
+
+// "WON" (Width 14, Height 5)
+const uint8_t sprite_word_WON[CHAR_HEIGHT][TITLE_WIDTH] = {
+    {7,0,0,7, 0, 0,7,7,0, 0, 7,0,0,7}, // W   O   N
+    {7,0,0,7, 0, 7,0,0,7, 0, 7,7,0,7},
+    {7,0,0,7, 0, 7,0,0,7, 0, 7,7,7,7},
+    {7,7,7,7, 0, 7,0,0,7, 0, 7,0,7,7},
+    {7,0,0,7, 0, 0,7,7,0, 0, 7,0,0,7}
+};
+
 //===========================================================================
 // SCAN FUNCTION
 //===========================================================================
@@ -349,24 +406,28 @@ void TIM14_IRQHandler(void) {
 
         bool scored = false;
         
-        // PA12 (Player Score)
-        if (GPIOA->IDR & (1 << 12)) {
+        // --- CHANGED LOGIC START ---
+        
+        // PA12 (Player Score) 
+        // We now check if the bit is 0 (LOW) using the logic NOT operator (!)
+        if (!(GPIOA->IDR & (1 << 12))) {
             player_score++;
             scored = true;
         } 
         // PA11 (Bot Score)
-        else if (GPIOA->IDR & (1 << 11)) {
+        // We now check if the bit is 0 (LOW)
+        else if (!(GPIOA->IDR & (1 << 11))) {
             bot_score++;
             scored = true;
         }
+
+        // --- CHANGED LOGIC END ---
 
         if (scored) {
             sensor_cooldown = GOAL_COOLDOWN_TICKS;
             // Check Win Condition (7 points)
             if (player_score >= WINNING_SCORE || bot_score >= WINNING_SCORE) {
                 game_active = false;
-                // Note: Scores are NOT reset here, preserving the logic you requested.
-                // They will persist until "Reset" (PA0) is pressed in the main loop.
             }
         }
     }
@@ -386,15 +447,18 @@ int main(void) {
     init_start_reset();  
 
     while (1) {
+        // --- BUTTON INPUTS ---
+        
         // PB2 = Start
         if (GPIOB->IDR & (1<<2)) {
             game_active = true;
-            // If starting a new game after a win, reset scores if they are already maxed out
+            // If starting a new game after a win, reset scores
             if (player_score >= WINNING_SCORE || bot_score >= WINNING_SCORE) {
                  player_score = 0;
                  bot_score = 0;
             }
         }
+        
         // PA0 = Reset
         if (GPIOA->IDR & (1<<0)) {
             game_active = false;
@@ -402,18 +466,50 @@ int main(void) {
             bot_score = 0;
         }
 
+        // --- DRAWING LOGIC ---
+
         ClearScreen();
 
-        if (!game_active) {
-            start_screen();
-        } else {
-            // Draw Player Score
-            if (player_score < 10)
-                DrawSprite(2, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[player_score]);
+        if (game_active) {
+            // === ACTIVE GAME STATE ===
             
-            // Draw Bot Score
+            // Draw Titles
+            DrawSprite(0, 2, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_YOU);
+            DrawSprite(18, 2, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_BOT);
+
+            // Draw Scores & Separator
+            if (player_score < 10)
+                DrawSprite(4, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[player_score]);
+            
+            DrawSprite(14, 9, COLON_HEIGHT, COLON_WIDTH, sprite_colon);
+
             if (bot_score < 10)
                 DrawSprite(18, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[bot_score]);
+
+        } else {
+            // === INACTIVE STATE (Start or End Screen) ===
+            
+            if (player_score >= WINNING_SCORE) {
+                // PLAYER WON SCREEN
+                // Draw "YOU" at Top (Centered horizontally relative to screen width 32)
+                // "YOU" is 14px wide. Screen 32. Center x = (32-14)/2 = 9
+                DrawSprite(9, 2, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_YOU);
+                
+                // Draw "WON" below it
+                DrawSprite(9, 9, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_WON);
+                
+            } else if (bot_score >= WINNING_SCORE) {
+                // BOT WON SCREEN
+                // Draw "BOT" at Top
+                DrawSprite(9, 2, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_BOT);
+                
+                // Draw "WON" below it
+                DrawSprite(9, 9, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_WON);
+                
+            } else {
+                // START SCREEN (Scores are 0 or low)
+                start_screen();
+            }
         }
         
         delay_ms(16); 
