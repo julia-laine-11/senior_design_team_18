@@ -55,6 +55,133 @@ void enable_ports(void) {
 }
 
 //===========================================================================
+// OLED DISPLAY DEFINITIONS (SOC1602A)
+//===========================================================================
+// SCL -> PC11
+// SDI -> PC10
+// CS  -> PA15
+
+#define OLED_RS_CMD 0
+#define OLED_RS_DATA 1
+
+//===========================================================================
+// OLED DRIVER FUNCTIONS
+//===========================================================================
+
+// Software delay for short intervals (approx 1 us @ 48MHz)
+void delay_us(uint32_t us) {
+    us *= 6; // Approx loop calibration
+    while (us--) asm("nop");
+}
+
+// Implements the 10-bit Serial Protocol from Datasheet Section 11 [cite: 351]
+// Protocol: CS Low -> RS Bit -> RW Bit -> D7...D0 -> CS High
+void OLED_Send(uint8_t byte, uint8_t rs) {
+    // 1. Chip Select Low (Active) [cite: 349]
+    GPIOA->BRR = (1 << 15); 
+    
+    // 2. Send RS Bit (0=Cmd, 1=Data) [cite: 367, 368]
+    if (rs) GPIOC->BSRR = (1 << 10); // SDI High
+    else    GPIOC->BRR  = (1 << 10); // SDI Low
+    
+    // Clock Pulse (Rising Edge) [cite: 350]
+    GPIOC->BRR  = (1 << 11); // SCL Low
+    delay_us(1);
+    GPIOC->BSRR = (1 << 11); // SCL High
+    delay_us(1);
+
+    // 3. Send RW Bit (Always 0 for Write)
+    GPIOC->BRR  = (1 << 10); // SDI Low
+    
+    // Clock Pulse
+    GPIOC->BRR  = (1 << 11);
+    delay_us(1);
+    GPIOC->BSRR = (1 << 11);
+    delay_us(1);
+
+    // 4. Send Data Bits (D7 down to D0)
+    for (int i = 7; i >= 0; i--) {
+        if ((byte >> i) & 0x01) GPIOC->BSRR = (1 << 10);
+        else                    GPIOC->BRR  = (1 << 10);
+
+        // Clock Pulse
+        GPIOC->BRR  = (1 << 11);
+        delay_us(1);
+        GPIOC->BSRR = (1 << 11);
+        delay_us(1);
+    }
+
+    // 5. Chip Select High (Inactive) [cite: 349]
+    GPIOA->BSRR = (1 << 15);
+    
+    // Small delay between instructions
+    delay_us(50);
+}
+
+void OLED_Command(uint8_t cmd) {
+    OLED_Send(cmd, OLED_RS_CMD);
+}
+
+void OLED_Data(uint8_t data) {
+    OLED_Send(data, OLED_RS_DATA);
+}
+
+void OLED_String(char *str) {
+    while (*str) {
+        OLED_Data(*str++);
+    }
+}
+
+// Initialization Sequence from Datasheet Section 14 [cite: 428]
+void OLED_Init(void) {
+    delay_ms(100);      // Wait for power stabilization
+
+    // 1. Function Set: 8-bit, 2 Line, 5x8 Font [cite: 263]
+    OLED_Command(0x38); 
+    delay_ms(2);
+
+    // 2. Display OFF [cite: 452]
+    OLED_Command(0x08);
+    delay_ms(2);
+
+    // 3. Clear Display [cite: 472]
+    OLED_Command(0x01);
+    delay_ms(5);        // Clear requires > 2ms
+
+    // 4. Return Home (FIXES ORIENTATION) [cite: 211, 511]
+    // Resets shift and puts cursor at top-left (Address 0x00)
+    OLED_Command(0x02); 
+    delay_ms(2);
+
+    // 5. Entry Mode Set: Increment (I/D=1), No Shift (S=0) [cite: 492]
+    // Ensures text writes from Left to Right
+    OLED_Command(0x06); 
+    delay_ms(2);
+
+    // 6. Display ON [cite: 530]
+    OLED_Command(0x0C); 
+    delay_ms(2);
+}
+
+void init_oled_gpio(void) {
+    // Enable Port C and A clocks (If not already enabled)
+    RCC->AHBENR |= RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIOAEN;
+
+    // PC10 (SDI) and PC11 (SCL) as Output
+    GPIOC->MODER &= ~(GPIO_MODER_MODER10 | GPIO_MODER_MODER11);
+    GPIOC->MODER |= (GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0); // 01: Output
+
+    // PA15 (CS) as Output
+    GPIOA->MODER &= ~(GPIO_MODER_MODER15);
+    GPIOA->MODER |= (GPIO_MODER_MODER15_0); // 01: Output
+    
+    // Set Idle States
+    GPIOA->BSRR = (1 << 15); // CS High (Inactive)
+    GPIOC->BRR  = (1 << 11); // SCL Low
+}
+
+
+//===========================================================================
 // HARDWARE SETUP
 //===========================================================================
 
@@ -115,7 +242,7 @@ void init_matrix_gpio(void) {
 // Timer 6: Matrix Refresh (High Priority)
 void init_refresh_timer(void) {
     RCC->APB1ENR |= RCC_APB1ENR_TIM6EN;
-    TIM6->PSC = 48 - 1;   // 1MHz
+    TIM6->PSC = 40 - 1;   // 1MHz
     TIM6->ARR = 100 - 1;  // 100us
     TIM6->DIER |= TIM_DIER_UIE;
     NVIC_SetPriority(TIM6_DAC_IRQn, 0); 
@@ -440,74 +567,76 @@ void TIM14_IRQHandler(void) {
 int main(void) {
     enable_ports(); 
     
+    // --- OLED SETUP ---
+    init_oled_gpio();
+    OLED_Init();
+    
+    // Force Cursor to Line 1 Start (0x80) [cite: 281]
+    OLED_Command(0x80); 
+    OLED_String("Mode: AI        "); // Extra spaces clear any garbage
+    
+    // --- HARDWARE SETUP ---
     init_matrix_gpio();
     init_refresh_timer();
     setup_tim14();
     init_sensors();      
     init_start_reset();  
 
+    // Track previous state to prevent screen flickering
+    bool last_game_state = !game_active; 
+
     while (1) {
         // --- BUTTON INPUTS ---
-        
-        // PB2 = Start
         if (GPIOB->IDR & (1<<2)) {
             game_active = true;
-            // If starting a new game after a win, reset scores
+            // Reset scores if restarting after a win
             if (player_score >= WINNING_SCORE || bot_score >= WINNING_SCORE) {
                  player_score = 0;
                  bot_score = 0;
             }
         }
         
-        // PA0 = Reset
         if (GPIOA->IDR & (1<<0)) {
             game_active = false;
             player_score = 0;
             bot_score = 0;
         }
 
-        // --- DRAWING LOGIC ---
+        // --- OLED STATUS UPDATE ---
+        // Only update display when state changes to avoid lag
+        if (game_active != last_game_state) {
+            
+            // Move cursor to Line 2 Start (Address 0x40 + Set Command 0x80 = 0xC0) [cite: 286]
+            OLED_Command(0xC0); 
+            
+            if (game_active) {
+                OLED_String("Game Running    "); // Padding clears previous text
+            } else {
+                OLED_String("Game Ready      ");
+            }
+            
+            last_game_state = game_active;
+        }
 
+        // --- MATRIX DRAWING LOGIC ---
         ClearScreen();
 
         if (game_active) {
-            // === ACTIVE GAME STATE ===
-            
-            // Draw Titles
             DrawSprite(0, 2, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_YOU);
             DrawSprite(18, 2, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_BOT);
-
-            // Draw Scores & Separator
             if (player_score < 10)
                 DrawSprite(4, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[player_score]);
-            
             DrawSprite(14, 9, COLON_HEIGHT, COLON_WIDTH, sprite_colon);
-
             if (bot_score < 10)
                 DrawSprite(18, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[bot_score]);
-
         } else {
-            // === INACTIVE STATE (Start or End Screen) ===
-            
             if (player_score >= WINNING_SCORE) {
-                // PLAYER WON SCREEN
-                // Draw "YOU" at Top (Centered horizontally relative to screen width 32)
-                // "YOU" is 14px wide. Screen 32. Center x = (32-14)/2 = 9
                 DrawSprite(9, 2, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_YOU);
-                
-                // Draw "WON" below it
                 DrawSprite(9, 9, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_WON);
-                
             } else if (bot_score >= WINNING_SCORE) {
-                // BOT WON SCREEN
-                // Draw "BOT" at Top
                 DrawSprite(9, 2, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_BOT);
-                
-                // Draw "WON" below it
                 DrawSprite(9, 9, CHAR_HEIGHT, TITLE_WIDTH, sprite_word_WON);
-                
             } else {
-                // START SCREEN (Scores are 0 or low)
                 start_screen();
             }
         }
