@@ -8247,6 +8247,113 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "testpoint:TestPoint_Small"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0.762)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "TP"
+				(at 0 3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "TestPoint_Small"
+				(at 0 2.032 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 5.08 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "test point"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "test point tp"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "Pin* Test*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "TestPoint_Small_0_1"
+				(circle
+					(center 0 0)
+					(radius 0.508)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "TestPoint_Small_1_1"
+				(pin passive line
+					(at 0 0 90)
+					(length 0)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 	)
 	(rectangle
 		(start 288.9205 197.8574)
@@ -8514,8 +8621,8 @@
 		(uuid e00983f2-df8c-4fcb-9aae-877a40d2e4e0)
 	)
 	(rectangle
-		(start 72.644 36.83)
-		(end 94.488 74.422)
+		(start 57.404 34.29)
+		(end 79.248 71.882)
 		(stroke
 			(width 0)
 			(type default)
@@ -8870,9 +8977,19 @@
 		)
 		(uuid "ed0d0242-ebb2-40ab-adf6-9be4b81606af")
 	)
+	(text "heatbeat led ft232\n"
+		(exclude_from_sim no)
+		(at 356.108 29.718 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+		(uuid "f90d4190-c847-43c0-9ac2-1f3e6387c442")
+	)
 	(text "mounting holes"
 		(exclude_from_sim no)
-		(at 80.264 38.1 0)
+		(at 65.024 35.56 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -8960,16 +9077,34 @@
 		(uuid "0449c9b8-03cf-446e-8515-acdaf5eb5583")
 	)
 	(junction
+		(at 83.82 185.42)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "089eefb0-7a01-4879-9ba7-32f266ede279")
+	)
+	(junction
 		(at 250.19 187.96)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "09f4d722-d961-469c-a18b-aea15c886e20")
 	)
 	(junction
+		(at 110.49 190.5)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0c52309c-9b64-4209-b28a-4a6c17c9db93")
+	)
+	(junction
 		(at 323.85 177.8)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "0e799fc7-67c1-4404-885f-428fac4d1348")
+	)
+	(junction
+		(at 86.36 228.6)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "10e20acd-d0bb-4ef8-b41c-ad6ce2e82b78")
 	)
 	(junction
 		(at 250.19 167.64)
@@ -8982,6 +9117,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "1549bbf8-b541-4049-8474-1aaac8d81a08")
+	)
+	(junction
+		(at 204.47 162.56)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "15f78772-1b46-415a-b3a0-c309806680dc")
 	)
 	(junction
 		(at 325.12 209.55)
@@ -9002,6 +9143,12 @@
 		(uuid "1913cafc-2ac1-4cf4-8dab-fdc178b8dbae")
 	)
 	(junction
+		(at 110.49 187.96)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "193ad93b-cb1d-4364-abb8-5584acf0947a")
+	)
+	(junction
 		(at 250.19 144.78)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9018,6 +9165,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "2517414e-1464-4d5d-8ff8-26b33a6a3ed6")
+	)
+	(junction
+		(at 204.47 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "27b3efd8-ba76-48a1-80ea-0c133267c22d")
 	)
 	(junction
 		(at 308.61 153.67)
@@ -9440,6 +9593,12 @@
 		(uuid "bf454faa-962b-41b1-b993-d26a04f0b6b7")
 	)
 	(junction
+		(at 83.82 187.96)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "bfe9074e-23d2-46d0-9c63-5836596c53e7")
+	)
+	(junction
 		(at 325.12 153.67)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -9468,6 +9627,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "c7e463c8-5582-4896-9c49-d9bf1c049222")
+	)
+	(junction
+		(at 83.82 190.5)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "c82dd03b-aa35-4a24-87f7-8f87593bf018")
 	)
 	(junction
 		(at 250.19 180.34)
@@ -9504,6 +9669,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d954ce11-3cd7-4fe2-9c64-ab01d3ec5f70")
+	)
+	(junction
+		(at 110.49 185.42)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "d986c27b-4ad4-4def-a12a-df752476a582")
 	)
 	(junction
 		(at 250.19 182.88)
@@ -9763,7 +9934,7 @@
 	)
 	(wire
 		(pts
-			(xy 109.22 185.42) (xy 111.76 185.42)
+			(xy 109.22 185.42) (xy 110.49 185.42)
 		)
 		(stroke
 			(width 0)
@@ -9993,6 +10164,16 @@
 	)
 	(wire
 		(pts
+			(xy 83.82 187.96) (xy 85.09 187.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "19ad55a7-d4ee-4e0d-8d76-6394648f48bc")
+	)
+	(wire
+		(pts
 			(xy 144.78 237.49) (xy 144.78 236.22)
 		)
 		(stroke
@@ -10140,6 +10321,16 @@
 			(type default)
 		)
 		(uuid "228039a8-00f0-4119-9150-4653b572c780")
+	)
+	(wire
+		(pts
+			(xy 110.49 190.5) (xy 111.76 190.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "22a458df-7455-488a-a541-d526e18cdeca")
 	)
 	(wire
 		(pts
@@ -10633,7 +10824,7 @@
 	)
 	(wire
 		(pts
-			(xy 214.63 162.56) (xy 203.2 162.56)
+			(xy 214.63 162.56) (xy 204.47 162.56)
 		)
 		(stroke
 			(width 0)
@@ -10883,7 +11074,7 @@
 	)
 	(wire
 		(pts
-			(xy 82.55 185.42) (xy 85.09 185.42)
+			(xy 82.55 185.42) (xy 83.82 185.42)
 		)
 		(stroke
 			(width 0)
@@ -11010,6 +11201,16 @@
 			(type default)
 		)
 		(uuid "5d639131-add0-4749-be5e-2e3e7e999fd6")
+	)
+	(wire
+		(pts
+			(xy 110.49 187.96) (xy 111.76 187.96)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5e2a0d83-6e63-48c6-b43e-a6c4e1dd8149")
 	)
 	(wire
 		(pts
@@ -11273,7 +11474,7 @@
 	)
 	(wire
 		(pts
-			(xy 82.55 187.96) (xy 85.09 187.96)
+			(xy 82.55 187.96) (xy 83.82 187.96)
 		)
 		(stroke
 			(width 0)
@@ -11333,7 +11534,7 @@
 	)
 	(wire
 		(pts
-			(xy 214.63 127) (xy 203.2 127)
+			(xy 214.63 127) (xy 204.47 127)
 		)
 		(stroke
 			(width 0)
@@ -11703,6 +11904,16 @@
 	)
 	(wire
 		(pts
+			(xy 86.36 228.6) (xy 87.63 228.6)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8eb6ec33-3530-4edf-9840-a878db10d844")
+	)
+	(wire
+		(pts
 			(xy 152.4 116.84) (xy 154.94 116.84)
 		)
 		(stroke
@@ -11803,7 +12014,7 @@
 	)
 	(wire
 		(pts
-			(xy 109.22 187.96) (xy 111.76 187.96)
+			(xy 109.22 187.96) (xy 110.49 187.96)
 		)
 		(stroke
 			(width 0)
@@ -12493,6 +12704,16 @@
 	)
 	(wire
 		(pts
+			(xy 204.47 162.56) (xy 203.2 162.56)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c0af9fe7-7324-4545-88a6-e465cd297ee9")
+	)
+	(wire
+		(pts
 			(xy 247.65 129.54) (xy 250.19 129.54)
 		)
 		(stroke
@@ -12603,7 +12824,7 @@
 	)
 	(wire
 		(pts
-			(xy 109.22 190.5) (xy 111.76 190.5)
+			(xy 109.22 190.5) (xy 110.49 190.5)
 		)
 		(stroke
 			(width 0)
@@ -12823,6 +13044,16 @@
 	)
 	(wire
 		(pts
+			(xy 83.82 185.42) (xy 85.09 185.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d865a266-069a-426f-b2f4-62cab51ae8e1")
+	)
+	(wire
+		(pts
 			(xy 250.19 182.88) (xy 259.08 182.88)
 		)
 		(stroke
@@ -12950,6 +13181,16 @@
 			(type default)
 		)
 		(uuid "dde63b08-7683-4aa3-a54f-e54f8aa1ebee")
+	)
+	(wire
+		(pts
+			(xy 204.47 127) (xy 203.2 127)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dded8074-4e15-40b4-b5f3-0613932ce108")
 	)
 	(wire
 		(pts
@@ -13303,7 +13544,17 @@
 	)
 	(wire
 		(pts
-			(xy 82.55 190.5) (xy 85.09 190.5)
+			(xy 83.82 190.5) (xy 85.09 190.5)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f1624e2f-0e9b-4cf7-b4b1-5a2065eaea87")
+	)
+	(wire
+		(pts
+			(xy 82.55 190.5) (xy 83.82 190.5)
 		)
 		(stroke
 			(width 0)
@@ -13490,6 +13741,16 @@
 			(type default)
 		)
 		(uuid "ff0d84c0-ef1a-444d-86ab-1a3db84d07b4")
+	)
+	(wire
+		(pts
+			(xy 110.49 185.42) (xy 111.76 185.42)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ffcf5217-3759-4c39-beef-c92bd37586a7")
 	)
 	(label "ADMIN_JOYSTICK-Y"
 		(at 203.2 132.08 180)
@@ -18300,6 +18561,74 @@
 		)
 	)
 	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 83.82 185.42 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "072572c5-ae4e-4bf0-8b37-566499051b20")
+		(property "Reference" "TP4"
+			(at 84.836 184.658 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 85.09 186.6899 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm"
+			(at 88.9 185.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 88.9 185.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 83.82 185.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "69e7119d-1739-41fd-a51b-bd6a07cd7a54")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R_US")
 		(at 100.33 120.65 0)
 		(unit 1)
@@ -18371,6 +18700,74 @@
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
 					(reference "R9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 157.48 228.6 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "0b18b0b5-a3b4-41ab-9564-bc3ac4b6596b")
+		(property "Reference" "TP8"
+			(at 158.496 227.838 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 158.75 229.8699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 162.56 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 162.56 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 157.48 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "cd43c538-10e4-4320-bf51-a660d76a6873")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP8")
 					(unit 1)
 				)
 			)
@@ -18809,6 +19206,74 @@
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
 					(reference "#PWR02")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 137.16 191.77 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "145c0dfb-4b10-4390-be54-4ebfece7b7a3")
+		(property "Reference" "TP9"
+			(at 138.176 191.008 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 138.43 193.0399 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 142.24 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 142.24 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 137.16 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "cfddd98b-94d6-4f04-ae3c-23df0456d63d")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP9")
 					(unit 1)
 				)
 			)
@@ -19416,7 +19881,7 @@
 			)
 		)
 		(property "Value" "2SA1873-GRTE85L_F"
-			(at 109.982 239.522 0)
+			(at 109.728 202.438 0)
 			(effects
 				(font
 					(size 1.524 1.524)
@@ -19979,6 +20444,74 @@
 		)
 	)
 	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 204.47 162.56 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "35c2463b-e274-422c-a279-27c58ab53a10")
+		(property "Reference" "TP13"
+			(at 205.486 161.798 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 205.74 163.8299 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm"
+			(at 209.55 162.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 209.55 162.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 204.47 162.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "d5fe4253-c8d4-4c6c-97a5-ac41cb077e70")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP13")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 256.54 233.68 0)
 		(unit 1)
@@ -20126,7 +20659,7 @@
 			)
 		)
 		(property "Value" "2SA1873-GRTE85L_F"
-			(at 148.082 239.522 0)
+			(at 148.082 204.978 0)
 			(effects
 				(font
 					(size 1.524 1.524)
@@ -20896,6 +21429,74 @@
 		)
 	)
 	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 106.68 228.6 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "4f5b3521-d304-40a1-bf10-70ecca018fcf")
+		(property "Reference" "TP12"
+			(at 107.696 227.838 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 107.95 229.8699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 111.76 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 111.76 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 106.68 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e36bf832-0a4f-4b7d-b911-9537621369ee")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP12")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector:Conn_01x05_Socket")
 		(at 160.02 116.84 0)
 		(mirror x)
@@ -21055,6 +21656,74 @@
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
 					(reference "C11")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 83.82 190.5 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "57202840-81ea-4261-a102-19a484dc06f1")
+		(property "Reference" "TP6"
+			(at 84.836 189.738 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 85.09 191.7699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm"
+			(at 88.9 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 88.9 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 83.82 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "f1ae4a87-07fd-4ae4-809a-7e3435c14e5e")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP6")
 					(unit 1)
 				)
 			)
@@ -21690,6 +22359,74 @@
 		)
 	)
 	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 110.49 185.42 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "603f0d9a-f3ee-49ff-bc30-2c448e4a9594")
+		(property "Reference" "TP1"
+			(at 111.506 184.658 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 111.76 186.6899 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm"
+			(at 115.57 185.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 115.57 185.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 110.49 185.42 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "bcb59bde-c677-4257-92b2-95189cbe10bd")
+		)
+		(instances
+			(project ""
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Connector:Conn_01x05_Socket")
 		(at 129.54 151.13 0)
 		(unit 1)
@@ -21778,7 +22515,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 76.2 43.18 0)
+		(at 60.96 40.64 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -21787,7 +22524,7 @@
 		(fields_autoplaced yes)
 		(uuid "67269047-1823-487f-94a1-1d307c8d28df")
 		(property "Reference" "H1"
-			(at 78.74 41.9099 0)
+			(at 63.5 39.3699 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21796,7 +22533,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 78.74 44.4499 0)
+			(at 63.5 41.9099 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21805,7 +22542,7 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_3.2mm_M3"
-			(at 76.2 43.18 0)
+			(at 60.96 40.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21814,7 +22551,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 76.2 43.18 0)
+			(at 60.96 40.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21823,7 +22560,7 @@
 			)
 		)
 		(property "Description" "Mounting Hole without connection"
-			(at 76.2 43.18 0)
+			(at 60.96 40.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21860,7 +22597,7 @@
 			)
 		)
 		(property "Value" "2SA1873-GRTE85L_F"
-			(at 161.036 201.93 0)
+			(at 160.782 170.434 0)
 			(effects
 				(font
 					(size 1.524 1.524)
@@ -22133,6 +22870,74 @@
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
 					(reference "D3")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 86.36 228.6 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "74d7cd76-2ad5-4f50-8641-5ba99b66fd52")
+		(property "Reference" "TP11"
+			(at 87.376 227.838 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 87.63 229.8699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 91.44 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 91.44 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 86.36 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "fe1138c2-a985-4cd6-aff7-dcd129e6c84b")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP11")
 					(unit 1)
 				)
 			)
@@ -22417,7 +23222,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 76.2 52.07 0)
+		(at 60.96 49.53 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -22426,7 +23231,7 @@
 		(fields_autoplaced yes)
 		(uuid "7fd83226-86cd-40db-96bd-797533e789e1")
 		(property "Reference" "H2"
-			(at 78.74 50.7999 0)
+			(at 63.5 48.2599 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22435,7 +23240,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 78.74 53.3399 0)
+			(at 63.5 50.7999 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22444,7 +23249,7 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_3.2mm_M3"
-			(at 76.2 52.07 0)
+			(at 60.96 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22453,7 +23258,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 76.2 52.07 0)
+			(at 60.96 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22462,7 +23267,7 @@
 			)
 		)
 		(property "Description" "Mounting Hole without connection"
-			(at 76.2 52.07 0)
+			(at 60.96 49.53 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -22474,6 +23279,74 @@
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
 					(reference "H2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 110.49 190.5 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "80694b23-44a0-4e5c-80ad-9d38feac91cc")
+		(property "Reference" "TP3"
+			(at 111.506 189.738 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 111.76 191.7699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm"
+			(at 115.57 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 115.57 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 110.49 190.5 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "52fb2254-341b-439e-9c33-9d552e1ead27")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP3")
 					(unit 1)
 				)
 			)
@@ -23375,6 +24248,74 @@
 		)
 	)
 	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 137.16 228.6 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "9c71fe56-0a44-4305-8ffc-59ea4af34b4b")
+		(property "Reference" "TP7"
+			(at 138.176 227.838 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 138.43 229.8699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 142.24 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 142.24 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 137.16 228.6 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "2c39e66b-3801-46cc-a659-b73e78cd7e38")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP7")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 200.66 257.81 0)
 		(unit 1)
@@ -23434,6 +24375,74 @@
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
 					(reference "#PWR049")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 83.82 187.96 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "9cd794b5-8535-49d7-82d8-de40e2d58b61")
+		(property "Reference" "TP5"
+			(at 84.836 187.198 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 85.09 189.2299 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm"
+			(at 88.9 187.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 88.9 187.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 83.82 187.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "ea7d8204-efce-4a6b-b183-831f553b78c1")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP5")
 					(unit 1)
 				)
 			)
@@ -24117,7 +25126,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 76.2 69.85 0)
+		(at 60.96 67.31 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -24126,7 +25135,7 @@
 		(fields_autoplaced yes)
 		(uuid "b0c22919-6e13-457c-97f3-10505fc36418")
 		(property "Reference" "H4"
-			(at 78.74 68.5799 0)
+			(at 63.5 66.0399 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24135,7 +25144,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 78.74 71.1199 0)
+			(at 63.5 68.5799 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24144,7 +25153,7 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_3.2mm_M3"
-			(at 76.2 69.85 0)
+			(at 60.96 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24153,7 +25162,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 76.2 69.85 0)
+			(at 60.96 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24162,7 +25171,7 @@
 			)
 		)
 		(property "Description" "Mounting Hole without connection"
-			(at 76.2 69.85 0)
+			(at 60.96 67.31 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24327,8 +25336,76 @@
 		)
 	)
 	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 204.47 127 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "ba3f8f26-cc56-44fd-889e-293450806b31")
+		(property "Reference" "TP14"
+			(at 205.486 126.238 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 205.74 128.2699 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm"
+			(at 209.55 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 209.55 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 204.47 127 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "b73c95ef-076f-48d7-87ae-91b944087aed")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP14")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 76.2 60.96 0)
+		(at 60.96 58.42 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom no)
@@ -24336,7 +25413,7 @@
 		(dnp no)
 		(uuid "bc07fdcb-56bc-458c-838a-5cfc466499b6")
 		(property "Reference" "H3"
-			(at 78.74 59.6899 0)
+			(at 63.5 57.1499 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24345,7 +25422,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 78.74 62.2299 0)
+			(at 63.5 59.6899 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24354,7 +25431,7 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_3.2mm_M3"
-			(at 76.2 60.96 0)
+			(at 60.96 58.42 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24363,7 +25440,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 76.2 60.96 0)
+			(at 60.96 58.42 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24372,7 +25449,7 @@
 			)
 		)
 		(property "Description" "Mounting Hole without connection"
-			(at 76.2 60.96 0)
+			(at 60.96 58.42 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -25430,6 +26507,74 @@
 		)
 	)
 	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 110.49 187.96 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "d1dab974-4475-412f-b210-33b2beab9e8d")
+		(property "Reference" "TP2"
+			(at 111.506 187.198 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 111.76 189.2299 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" "TestPoint:TestPoint_THTPad_D1.0mm_Drill0.5mm"
+			(at 115.57 187.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 115.57 187.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 110.49 187.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a69049bc-dd0c-4232-a3c1-1616f20efb52")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:LED_Small_ALT")
 		(at 276.86 193.04 180)
 		(unit 1)
@@ -25501,6 +26646,74 @@
 			(project "senior_design_pcb"
 				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
 					(reference "LD4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "testpoint:TestPoint_Small")
+		(at 157.48 191.77 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "da38e025-a25f-4bc5-9caa-6f5c228b6c11")
+		(property "Reference" "TP10"
+			(at 158.496 191.008 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Value" "TestPoint_Small"
+			(at 158.75 193.0399 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+		(property "Footprint" ""
+			(at 162.56 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 162.56 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "test point"
+			(at 157.48 191.77 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "438696a8-6fe4-4639-ab26-98f41114c200")
+		)
+		(instances
+			(project "senior_design_pcb"
+				(path "/50c554f9-3ed9-4f91-b5d3-2dee1756645e"
+					(reference "TP10")
 					(unit 1)
 				)
 			)
