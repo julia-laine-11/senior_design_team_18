@@ -10,18 +10,24 @@ from tkinter import ttk, messagebox
 from threading import Thread, Lock, Event
 
 # -------------------- CONFIGURATION --------------------
-CAM_INDEX = 2  # Global Shutter USB Camera
+CAM_INDEX = 0 # Global Shutter USB Camera
 FRAME_WIDTH = 640
 FRAME_HEIGHT = 480
 
 # Processing scale (0.5 = half resolution for detection, faster)
 PROCESSING_SCALE = 0.5
 
-# HSV ranges for detection
-PUCK_HSV_LOW = np.array([40, 50, 50], dtype=np.uint8)    # Green
+# HSV ranges for detection (calibrated)
+PUCK_HSV_LOW = np.array([40, 50, 50],  dtype=np.uint8)    # Green
 PUCK_HSV_HIGH = np.array([80, 255, 255], dtype=np.uint8)
-MALLET_HSV_LOW = np.array([5, 100, 100], dtype=np.uint8)  # Orange
-MALLET_HSV_HIGH = np.array([25, 255, 255], dtype=np.uint8)
+MALLET_HSV_LOW = np.array([5, 127, 100], dtype=np.uint8)
+MALLET_HSV_HIGH = np.array([25, 209, 255], dtype=np.uint8)
+
+# Original Tune
+# PUCK_HSV_LOW = [40, 50, 50]      # Green puck
+# PUCK_HSV_HIGH = [80, 255, 255]
+# MALLET_HSV_LOW = [5, 100, 100]   # Orange mallet  
+# MALLET_HSV_HIGH = [25, 255, 255]
 
 # Detection parameters
 PUCK_MIN_RADIUS = 5
@@ -36,8 +42,9 @@ TRAJECTORY_DAMPING = 0.95
 # Table bounds (pixels from edge)
 TABLE_BOUNDS = {"top": 50, "bottom": 50, "left": 50, "right": 50}
 
-# ROI margins (pixels from edge)
-ROI_MARGINS = {"top": 20, "bottom": 20, "left": 20, "right": 20}
+# ROI margins (pixels from edge) - separate for puck and mallet
+PUCK_ROI = {"top": 20, "bottom": 20, "left": 20, "right": 20}
+MALLET_ROI = {"top": 20, "bottom": 20, "left": 20, "right": 20}
 
 # Display options (controlled by GUI)
 SHOW_MASK = True
@@ -73,11 +80,18 @@ class TrackerState:
     """Thread-safe state shared between tracker and GUI"""
     def __init__(self):
         self.lock = Lock()
-        self.roi_margins = ROI_MARGINS.copy()
+        self.puck_roi = PUCK_ROI.copy()
+        self.mallet_roi = MALLET_ROI.copy()
         self.table_bounds = TABLE_BOUNDS.copy()
         self.show_mask = SHOW_MASK
         self.show_roi = SHOW_ROI
         self.show_trajectory = True
+        
+        # HSV color ranges (calibration)
+        self.puck_hsv_low = list(PUCK_HSV_LOW)
+        self.puck_hsv_high = list(PUCK_HSV_HIGH)
+        self.mallet_hsv_low = list(MALLET_HSV_LOW)
+        self.mallet_hsv_high = list(MALLET_HSV_HIGH)
         
         # Tracking results
         self.puck_x = 0.0
@@ -91,13 +105,21 @@ class TrackerState:
         self.cap_ms = 0.0
         self.proc_ms = 0.0
     
-    def get_roi(self):
+    def get_puck_roi(self):
         with self.lock:
-            return self.roi_margins.copy()
+            return self.puck_roi.copy()
     
-    def set_roi(self, margins):
+    def set_puck_roi(self, margins):
         with self.lock:
-            self.roi_margins = margins.copy()
+            self.puck_roi = margins.copy()
+    
+    def get_mallet_roi(self):
+        with self.lock:
+            return self.mallet_roi.copy()
+    
+    def set_mallet_roi(self, margins):
+        with self.lock:
+            self.mallet_roi = margins.copy()
     
     def get_table_bounds(self):
         with self.lock:
@@ -117,6 +139,26 @@ class TrackerState:
             self.fps = fps
             self.cap_ms = cap_ms
             self.proc_ms = proc_ms
+    
+    def get_puck_hsv(self):
+        with self.lock:
+            return (np.array(self.puck_hsv_low, dtype=np.uint8),
+                    np.array(self.puck_hsv_high, dtype=np.uint8))
+    
+    def set_puck_hsv(self, low, high):
+        with self.lock:
+            self.puck_hsv_low = list(low)
+            self.puck_hsv_high = list(high)
+    
+    def get_mallet_hsv(self):
+        with self.lock:
+            return (np.array(self.mallet_hsv_low, dtype=np.uint8),
+                    np.array(self.mallet_hsv_high, dtype=np.uint8))
+    
+    def set_mallet_hsv(self, low, high):
+        with self.lock:
+            self.mallet_hsv_low = list(low)
+            self.mallet_hsv_high = list(high)
 
 # -------------------- KALMAN FILTER --------------------
 class KalmanTracker:
@@ -204,7 +246,7 @@ class ControlGUI:
         self.state = state
         self.root = tk.Tk()
         self.root.title("Tracker Controls")
-        self.root.geometry("400x600")
+        self.root.geometry("450x850")
         self._create_widgets()
         self._start_update()
     
@@ -216,22 +258,41 @@ class ControlGUI:
         self.fps_label = ttk.Label(info, text="FPS: --", font=("Courier", 10))
         self.fps_label.pack()
         
-        # ROI Margins
-        roi = ttk.LabelFrame(self.root, text="ROI Margins", padding=10)
-        roi.pack(fill="x", padx=10, pady=5)
+        # Puck ROI Margins
+        puck_roi_frame = ttk.LabelFrame(self.root, text="Puck ROI (Blue)", padding=5)
+        puck_roi_frame.pack(fill="x", padx=10, pady=3)
         
-        self.roi_sliders = {}
-        for i, (name, default) in enumerate([("top", ROI_MARGINS["top"]), 
-                                              ("bottom", ROI_MARGINS["bottom"]),
-                                              ("left", ROI_MARGINS["left"]), 
-                                              ("right", ROI_MARGINS["right"])]):
-            ttk.Label(roi, text=f"{name.title()}:").grid(row=i, column=0, sticky="w")
-            s = ttk.Scale(roi, from_=0, to=200, orient="horizontal")
+        self.puck_roi_sliders = {}
+        for i, (name, default) in enumerate([("top", PUCK_ROI["top"]), 
+                                              ("bottom", PUCK_ROI["bottom"]),
+                                              ("left", PUCK_ROI["left"]), 
+                                              ("right", PUCK_ROI["right"])]):
+            ttk.Label(puck_roi_frame, text=f"{name.title()}:").grid(row=i//2, column=(i%2)*2, sticky="w")
+            s = ttk.Scale(puck_roi_frame, from_=0, to=250, orient="horizontal", length=80)
             s.set(default)
-            s.grid(row=i, column=1, sticky="ew")
-            s.configure(command=lambda v, n=name: self._update_roi(n, v))
-            self.roi_sliders[name] = s
-        roi.columnconfigure(1, weight=1)
+            s.grid(row=i//2, column=(i%2)*2+1, sticky="ew", padx=2)
+            s.configure(command=lambda v, n=name: self._update_puck_roi(n, v))
+            self.puck_roi_sliders[name] = s
+        puck_roi_frame.columnconfigure(1, weight=1)
+        puck_roi_frame.columnconfigure(3, weight=1)
+        
+        # Mallet ROI Margins
+        mallet_roi_frame = ttk.LabelFrame(self.root, text="Mallet ROI (Cyan)", padding=5)
+        mallet_roi_frame.pack(fill="x", padx=10, pady=3)
+        
+        self.mallet_roi_sliders = {}
+        for i, (name, default) in enumerate([("top", MALLET_ROI["top"]), 
+                                              ("bottom", MALLET_ROI["bottom"]),
+                                              ("left", MALLET_ROI["left"]), 
+                                              ("right", MALLET_ROI["right"])]):
+            ttk.Label(mallet_roi_frame, text=f"{name.title()}:").grid(row=i//2, column=(i%2)*2, sticky="w")
+            s = ttk.Scale(mallet_roi_frame, from_=0, to=250, orient="horizontal", length=80)
+            s.set(default)
+            s.grid(row=i//2, column=(i%2)*2+1, sticky="ew", padx=2)
+            s.configure(command=lambda v, n=name: self._update_mallet_roi(n, v))
+            self.mallet_roi_sliders[name] = s
+        mallet_roi_frame.columnconfigure(1, weight=1)
+        mallet_roi_frame.columnconfigure(3, weight=1)
         
         # Table Bounds
         table = ttk.LabelFrame(self.root, text="Table Bounds", padding=10)
@@ -250,9 +311,53 @@ class ControlGUI:
             self.table_sliders[name] = s
         table.columnconfigure(1, weight=1)
         
+        # Puck HSV Calibration
+        puck_hsv = ttk.LabelFrame(self.root, text="Puck HSV (Green)", padding=5)
+        puck_hsv.pack(fill="x", padx=10, pady=3)
+        
+        self.puck_sliders = {}
+        puck_defaults = [
+            ("H Low", PUCK_HSV_LOW[0], 179), ("H High", PUCK_HSV_HIGH[0], 179),
+            ("S Low", PUCK_HSV_LOW[1], 255), ("S High", PUCK_HSV_HIGH[1], 255),
+            ("V Low", PUCK_HSV_LOW[2], 255), ("V High", PUCK_HSV_HIGH[2], 255)
+        ]
+        for i, (name, default, max_val) in enumerate(puck_defaults):
+            ttk.Label(puck_hsv, text=f"{name}:", width=6).grid(row=i//2, column=(i%2)*2, sticky="w")
+            s = ttk.Scale(puck_hsv, from_=0, to=max_val, orient="horizontal", length=80)
+            s.set(default)
+            s.grid(row=i//2, column=(i%2)*2+1, sticky="ew", padx=2)
+            s.configure(command=lambda v, n=name: self._update_puck_hsv())
+            self.puck_sliders[name] = s
+        puck_hsv.columnconfigure(1, weight=1)
+        puck_hsv.columnconfigure(3, weight=1)
+        
+        # Mallet HSV Calibration
+        mallet_hsv = ttk.LabelFrame(self.root, text="Mallet HSV (Orange)", padding=5)
+        mallet_hsv.pack(fill="x", padx=10, pady=3)
+        
+        self.mallet_sliders = {}
+        mallet_defaults = [
+            ("H Low", MALLET_HSV_LOW[0], 179), ("H High", MALLET_HSV_HIGH[0], 179),
+            ("S Low", MALLET_HSV_LOW[1], 255), ("S High", MALLET_HSV_HIGH[1], 255),
+            ("V Low", MALLET_HSV_LOW[2], 255), ("V High", MALLET_HSV_HIGH[2], 255)
+        ]
+        for i, (name, default, max_val) in enumerate(mallet_defaults):
+            ttk.Label(mallet_hsv, text=f"{name}:", width=6).grid(row=i//2, column=(i%2)*2, sticky="w")
+            s = ttk.Scale(mallet_hsv, from_=0, to=max_val, orient="horizontal", length=80)
+            s.set(default)
+            s.grid(row=i//2, column=(i%2)*2+1, sticky="ew", padx=2)
+            s.configure(command=lambda v, n=name: self._update_mallet_hsv())
+            self.mallet_sliders[name] = s
+        mallet_hsv.columnconfigure(1, weight=1)
+        mallet_hsv.columnconfigure(3, weight=1)
+        
+        # Print HSV button
+        ttk.Button(self.root, text="Print HSV Values to Console", 
+                  command=self._print_hsv).pack(pady=5)
+        
         # Display Options
-        disp = ttk.LabelFrame(self.root, text="Display", padding=10)
-        disp.pack(fill="x", padx=10, pady=5)
+        disp = ttk.LabelFrame(self.root, text="Display", padding=5)
+        disp.pack(fill="x", padx=10, pady=3)
         
         self.show_mask_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(disp, text="Show Mask Window", variable=self.show_mask_var,
@@ -277,10 +382,15 @@ class ControlGUI:
         self.perf_label = ttk.Label(results, text="Cap: -- | Proc: --", font=("Courier", 9))
         self.perf_label.pack(anchor="w")
     
-    def _update_roi(self, name, val):
-        margins = self.state.get_roi()
+    def _update_puck_roi(self, name, val):
+        margins = self.state.get_puck_roi()
         margins[name] = int(float(val))
-        self.state.set_roi(margins)
+        self.state.set_puck_roi(margins)
+    
+    def _update_mallet_roi(self, name, val):
+        margins = self.state.get_mallet_roi()
+        margins[name] = int(float(val))
+        self.state.set_mallet_roi(margins)
     
     def _update_table(self, name, val):
         bounds = self.state.get_table_bounds()
@@ -295,6 +405,38 @@ class ControlGUI:
     
     def _toggle_traj(self):
         self.state.show_trajectory = self.show_traj_var.get()
+    
+    def _update_puck_hsv(self):
+        low = [int(self.puck_sliders["H Low"].get()),
+               int(self.puck_sliders["S Low"].get()),
+               int(self.puck_sliders["V Low"].get())]
+        high = [int(self.puck_sliders["H High"].get()),
+                int(self.puck_sliders["S High"].get()),
+                int(self.puck_sliders["V High"].get())]
+        self.state.set_puck_hsv(low, high)
+    
+    def _update_mallet_hsv(self):
+        low = [int(self.mallet_sliders["H Low"].get()),
+               int(self.mallet_sliders["S Low"].get()),
+               int(self.mallet_sliders["V Low"].get())]
+        high = [int(self.mallet_sliders["H High"].get()),
+                int(self.mallet_sliders["S High"].get()),
+                int(self.mallet_sliders["V High"].get())]
+        self.state.set_mallet_hsv(low, high)
+    
+    def _print_hsv(self):
+        puck_low, puck_high = self.state.get_puck_hsv()
+        mallet_low, mallet_high = self.state.get_mallet_hsv()
+        print("\n" + "=" * 60)
+        print("CURRENT HSV VALUES - Copy to puck_mallet_tracker_fast.py")
+        print("=" * 60)
+        print(f"\n# Puck (Green) HSV Range")
+        print(f"PUCK_HSV_LOW = np.array([{puck_low[0]}, {puck_low[1]}, {puck_low[2]}], dtype=np.uint8)")
+        print(f"PUCK_HSV_HIGH = np.array([{puck_high[0]}, {puck_high[1]}, {puck_high[2]}], dtype=np.uint8)")
+        print(f"\n# Mallet (Orange) HSV Range")
+        print(f"MALLET_HSV_LOW = np.array([{mallet_low[0]}, {mallet_low[1]}, {mallet_low[2]}], dtype=np.uint8)")
+        print(f"MALLET_HSV_HIGH = np.array([{mallet_high[0]}, {mallet_high[1]}, {mallet_high[2]}], dtype=np.uint8)")
+        print("=" * 60 + "\n")
     
     def _start_update(self):
         def update():
@@ -347,18 +489,28 @@ def tracking_thread(state, stop_event):
     mallet_mask = np.empty((proc_h, proc_w), dtype=np.uint8)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     
-    # Create ROI mask for processing resolution
-    roi_mask = np.zeros((proc_h, proc_w), dtype=np.uint8)
+    # Create separate ROI masks for puck and mallet
+    puck_roi_mask = np.zeros((proc_h, proc_w), dtype=np.uint8)
+    mallet_roi_mask = np.zeros((proc_h, proc_w), dtype=np.uint8)
     
-    def update_roi_mask(margins):
-        roi_mask.fill(0)
+    def update_puck_roi_mask(margins):
+        puck_roi_mask.fill(0)
         roi_t = int(margins['top'] * PROCESSING_SCALE)
         roi_b = int(margins['bottom'] * PROCESSING_SCALE)
         roi_l = int(margins['left'] * PROCESSING_SCALE)
         roi_r = int(margins['right'] * PROCESSING_SCALE)
-        cv2.rectangle(roi_mask, (roi_l, roi_t), (proc_w - roi_r, proc_h - roi_b), 255, -1)
+        cv2.rectangle(puck_roi_mask, (roi_l, roi_t), (proc_w - roi_r, proc_h - roi_b), 255, -1)
     
-    update_roi_mask(state.get_roi())
+    def update_mallet_roi_mask(margins):
+        mallet_roi_mask.fill(0)
+        roi_t = int(margins['top'] * PROCESSING_SCALE)
+        roi_b = int(margins['bottom'] * PROCESSING_SCALE)
+        roi_l = int(margins['left'] * PROCESSING_SCALE)
+        roi_r = int(margins['right'] * PROCESSING_SCALE)
+        cv2.rectangle(mallet_roi_mask, (roi_l, roi_t), (proc_w - roi_r, proc_h - roi_b), 255, -1)
+    
+    update_puck_roi_mask(state.get_puck_roi())
+    update_mallet_roi_mask(state.get_mallet_roi())
     
     # Kalman filters
     puck_kf = KalmanTracker(w // 2, h // 2)
@@ -368,6 +520,10 @@ def tracking_thread(state, stop_event):
     puck_lost_frames = 0
     mallet_lost_frames = 0
     LOST_THRESHOLD = 15  # After this many frames, ignore Kalman prediction for search
+    
+    # Time-based lost tracking for reporting -1,-1
+    puck_last_seen_time = time.perf_counter()
+    PUCK_LOST_TIMEOUT = 0.25  # seconds
     
     # FPS tracking
     fps_alpha = 0.1
@@ -379,7 +535,8 @@ def tracking_thread(state, stop_event):
     print("-" * 60)
     
     # Cache for ROI/table changes
-    last_roi = state.get_roi()
+    last_puck_roi = state.get_puck_roi()
+    last_mallet_roi = state.get_mallet_roi()
     
     while not stop_event.is_set():
         t0 = time.perf_counter()
@@ -390,10 +547,15 @@ def tracking_thread(state, stop_event):
         t_cap = time.perf_counter()
         
         # Check for ROI changes from GUI
-        current_roi = state.get_roi()
-        if current_roi != last_roi:
-            update_roi_mask(current_roi)
-            last_roi = current_roi
+        current_puck_roi = state.get_puck_roi()
+        if current_puck_roi != last_puck_roi:
+            update_puck_roi_mask(current_puck_roi)
+            last_puck_roi = current_puck_roi
+        
+        current_mallet_roi = state.get_mallet_roi()
+        if current_mallet_roi != last_mallet_roi:
+            update_mallet_roi_mask(current_mallet_roi)
+            last_mallet_roi = current_mallet_roi
         
         # Get current table bounds
         table_bounds = state.get_table_bounds()
@@ -401,18 +563,23 @@ def tracking_thread(state, stop_event):
         # Resize for processing
         small = cv2.resize(frame, (proc_w, proc_h), interpolation=cv2.INTER_LINEAR)
         
+        # Get current HSV values from state (for live calibration)
+        puck_hsv_low, puck_hsv_high = state.get_puck_hsv()
+        mallet_hsv_low, mallet_hsv_high = state.get_mallet_hsv()
+        
         # Use UMat for GPU acceleration if OpenCL available
         if use_opencl:
             small_gpu = cv2.UMat(small)
-            roi_gpu = cv2.UMat(roi_mask)
+            puck_roi_gpu = cv2.UMat(puck_roi_mask)
+            mallet_roi_gpu = cv2.UMat(mallet_roi_mask)
             blurred = cv2.GaussianBlur(small_gpu, (3, 3), 0)
             hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-            puck_m = cv2.inRange(hsv, PUCK_HSV_LOW, PUCK_HSV_HIGH)
-            puck_m = cv2.bitwise_and(puck_m, roi_gpu)
+            puck_m = cv2.inRange(hsv, puck_hsv_low, puck_hsv_high)
+            puck_m = cv2.bitwise_and(puck_m, puck_roi_gpu)
             puck_m = cv2.morphologyEx(puck_m, cv2.MORPH_OPEN, kernel)
             puck_m = cv2.morphologyEx(puck_m, cv2.MORPH_CLOSE, kernel)
-            mallet_m = cv2.inRange(hsv, MALLET_HSV_LOW, MALLET_HSV_HIGH)
-            mallet_m = cv2.bitwise_and(mallet_m, roi_gpu)
+            mallet_m = cv2.inRange(hsv, mallet_hsv_low, mallet_hsv_high)
+            mallet_m = cv2.bitwise_and(mallet_m, mallet_roi_gpu)
             mallet_m = cv2.morphologyEx(mallet_m, cv2.MORPH_OPEN, kernel)
             mallet_m = cv2.morphologyEx(mallet_m, cv2.MORPH_CLOSE, kernel)
             puck_mask = puck_m.get()
@@ -420,12 +587,12 @@ def tracking_thread(state, stop_event):
         else:
             cv2.GaussianBlur(small, (3, 3), 0, dst=small)
             cv2.cvtColor(small, cv2.COLOR_BGR2HSV, dst=hsv_buf)
-            cv2.inRange(hsv_buf, PUCK_HSV_LOW, PUCK_HSV_HIGH, dst=puck_mask)
-            cv2.bitwise_and(puck_mask, roi_mask, dst=puck_mask)
+            cv2.inRange(hsv_buf, puck_hsv_low, puck_hsv_high, dst=puck_mask)
+            cv2.bitwise_and(puck_mask, puck_roi_mask, dst=puck_mask)
             cv2.morphologyEx(puck_mask, cv2.MORPH_OPEN, kernel, dst=puck_mask)
             cv2.morphologyEx(puck_mask, cv2.MORPH_CLOSE, kernel, dst=puck_mask)
-            cv2.inRange(hsv_buf, MALLET_HSV_LOW, MALLET_HSV_HIGH, dst=mallet_mask)
-            cv2.bitwise_and(mallet_mask, roi_mask, dst=mallet_mask)
+            cv2.inRange(hsv_buf, mallet_hsv_low, mallet_hsv_high, dst=mallet_mask)
+            cv2.bitwise_and(mallet_mask, mallet_roi_mask, dst=mallet_mask)
             cv2.morphologyEx(mallet_mask, cv2.MORPH_OPEN, kernel, dst=mallet_mask)
             cv2.morphologyEx(mallet_mask, cv2.MORPH_CLOSE, kernel, dst=mallet_mask)
         
@@ -435,11 +602,16 @@ def tracking_thread(state, stop_event):
         
         t_proc = time.perf_counter()
         
-        # ROI limits for clamping positions
-        roi_left = current_roi['left']
-        roi_right = w - current_roi['right']
-        roi_top = current_roi['top']
-        roi_bottom = h - current_roi['bottom']
+        # ROI limits for clamping positions (separate for puck and mallet)
+        puck_roi_left = current_puck_roi['left']
+        puck_roi_right = w - current_puck_roi['right']
+        puck_roi_top = current_puck_roi['top']
+        puck_roi_bottom = h - current_puck_roi['bottom']
+        
+        mallet_roi_left = current_mallet_roi['left']
+        mallet_roi_right = w - current_mallet_roi['right']
+        mallet_roi_top = current_mallet_roi['top']
+        mallet_roi_bottom = h - current_mallet_roi['bottom']
         
         # Track puck
         px, py, pvx, pvy = puck_kf.predict()
@@ -465,12 +637,17 @@ def tracking_thread(state, stop_event):
                 px, py, pvx, pvy = puck_kf.correct(px, py)
             
             puck_lost_frames = 0
+            puck_last_seen_time = time.perf_counter()
+            
+            # Clamp puck position to puck ROI
+            px = max(puck_roi_left, min(puck_roi_right, px))
+            py = max(puck_roi_top, min(puck_roi_bottom, py))
         else:
             puck_lost_frames += 1
-        
-        # Clamp puck position to ROI
-        px = max(roi_left, min(roi_right, px))
-        py = max(roi_top, min(roi_bottom, py))
+            # If not seen for PUCK_LOST_TIMEOUT, report -1,-1
+            if time.perf_counter() - puck_last_seen_time >= PUCK_LOST_TIMEOUT:
+                px, py = -1, -1
+                pvx, pvy = 0, 0
         
         # Track mallet
         mx, my, mvx, mvy = mallet_kf.predict()
@@ -498,9 +675,9 @@ def tracking_thread(state, stop_event):
             mallet_lost_frames += 1
             mr = MALLET_MIN_RADIUS
         
-        # Clamp mallet position to ROI
-        mx = max(roi_left, min(roi_right, mx))
-        my = max(roi_top, min(roi_bottom, my))
+        # Clamp mallet position to mallet ROI
+        mx = max(mallet_roi_left, min(mallet_roi_right, mx))
+        my = max(mallet_roi_top, min(mallet_roi_bottom, my))
         
         # FPS and timing
         now = time.perf_counter()
@@ -519,11 +696,16 @@ def tracking_thread(state, stop_event):
         # === VISUALIZATION ===
         vis = frame.copy()
         
-        # Draw ROI rectangle (blue)
+        # Draw ROI rectangles
         if state.show_roi:
-            cv2.rectangle(vis, (current_roi['left'], current_roi['top']),
-                         (w - current_roi['right'], h - current_roi['bottom']),
+            # Puck ROI (blue)
+            cv2.rectangle(vis, (current_puck_roi['left'], current_puck_roi['top']),
+                         (w - current_puck_roi['right'], h - current_puck_roi['bottom']),
                          (255, 0, 0), 2)
+            # Mallet ROI (cyan)
+            cv2.rectangle(vis, (current_mallet_roi['left'], current_mallet_roi['top']),
+                         (w - current_mallet_roi['right'], h - current_mallet_roi['bottom']),
+                         (255, 255, 0), 2)
         
         # Draw table bounds (orange)
         cv2.rectangle(vis, (table_bounds['left'], table_bounds['top']),
@@ -575,10 +757,13 @@ def tracking_thread(state, stop_event):
             mask_vis[:, :, 2] = mallet_mask_full    # Red channel = mallet
             mask_vis[:, :, 0] = mallet_mask_full // 2  # Some blue for orange tint
             
-            # Draw ROI on mask view
-            cv2.rectangle(mask_vis, (current_roi['left'], current_roi['top']),
-                         (w - current_roi['right'], h - current_roi['bottom']),
-                         (255, 255, 255), 1)
+            # Draw ROIs on mask view
+            cv2.rectangle(mask_vis, (current_puck_roi['left'], current_puck_roi['top']),
+                         (w - current_puck_roi['right'], h - current_puck_roi['bottom']),
+                         (255, 0, 0), 1)  # Puck ROI in blue
+            cv2.rectangle(mask_vis, (current_mallet_roi['left'], current_mallet_roi['top']),
+                         (w - current_mallet_roi['right'], h - current_mallet_roi['bottom']),
+                         (255, 255, 0), 1)  # Mallet ROI in cyan
             
             cv2.putText(mask_vis, "GREEN=Puck  ORANGE=Mallet", (10, 25),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
