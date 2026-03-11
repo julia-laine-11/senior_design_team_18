@@ -8,6 +8,7 @@ import cv2
 import tkinter as tk
 from tkinter import ttk, messagebox
 from threading import Thread, Lock, Event
+from defense_controller import DefenseController
 
 # -------------------- CONFIGURATION --------------------
 CAM_INDEX = 0 # Global Shutter USB Camera
@@ -41,6 +42,11 @@ TRAJECTORY_DAMPING = 0.95
 
 # Table bounds (pixels from edge)
 TABLE_BOUNDS = {"top": 50, "bottom": 50, "left": 50, "right": 50}
+
+# Motor UART settings
+MOTOR_PORT = '/dev/ttyUSB1'
+MOTOR_BAUD = 115200
+MOTOR_ENABLED = True          # Set False to run vision-only (no serial)
 
 # ROI margins (pixels from edge) - separate for puck and mallet
 PUCK_ROI = {"top": 20, "bottom": 20, "left": 20, "right": 20}
@@ -478,6 +484,14 @@ def tracking_thread(state, stop_event):
     h, w = frame.shape[:2]
     print(f"Camera: {w}x{h} @ {cap.get(cv2.CAP_PROP_FPS):.0f} FPS")
     
+    # --- Defense motor controller ---
+    defense = None
+    if MOTOR_ENABLED:
+        try:
+            defense = DefenseController(port=MOTOR_PORT, baud_rate=MOTOR_BAUD)
+        except Exception as e:
+            print(f"[Defense] Motor init failed ({e}) – running vision-only")
+    
     # Processing dimensions
     proc_w, proc_h = int(w * PROCESSING_SCALE), int(h * PROCESSING_SCALE)
     scale_inv = 1.0 / PROCESSING_SCALE
@@ -693,6 +707,10 @@ def tracking_thread(state, stop_event):
         # Update shared state for GUI
         state.update_tracking(px, py, puck_speed, puck_det, mx, my, mallet_det, fps, cap_ms, proc_ms)
         
+        # --- Update defense motor ---
+        if defense:
+            defense.update(px, py, puck_det, mx, my, mallet_det)
+        
         # === VISUALIZATION ===
         vis = frame.copy()
         
@@ -784,6 +802,8 @@ def tracking_thread(state, stop_event):
                   f"Puck: {'YES' if puck_det else 'NO'} | Mallet: {'YES' if mallet_det else 'NO'}   ", end='')
     
     print("\n\nCleaning up...")
+    if defense:
+        defense.close()
     cap.release()
     cv2.destroyAllWindows()
 
