@@ -1,57 +1,69 @@
 import serial
 
-PORT = '/dev/ttyUSB1' 
+PORT = '/dev/ttyUSB0' 
 BAUD_RATE = 115200
 
 def main():
     try:
         ser = serial.Serial(PORT, BAUD_RATE)
-        print(f"Connected to STM32 on {PORT}.")
-        print("Commands: Enter a frequency between 100 and 200 (e.g., 150).")
-        print("Add a '-' sign (e.g., -150) to reverse direction.")
-        print("Enter '0' to stop the motor.")
+        print("Connected. 2-Byte Dual-Motor Protocol Active.")
+        print("Format: [Percent][Motor]. Example: -100A, 80B, 0A")
         print("Type 'exit' to quit.\n")
 
         while True:
-            user_input = input("Freq (kHz) >> ").strip()
+            user_input = input("Cmd >> ").strip()
+            if user_input.lower() == 'exit': break
             
-            if user_input.lower() == 'exit':
-                break
+            if len(user_input) < 2:
+                print("Invalid format. Need value and motor (e.g., 50A).")
+                continue
             
-            try:
-                val = int(user_input)
-                mag = abs(val)
+            motor_char = user_input[-1].upper()
+            val_str = user_input[:-1]
+            
+            if motor_char not in ['A', 'B']:
+                print("Error: Command must end with 'A' or 'B'.")
+                continue
                 
-                if mag == 0:
-                    # 127 (0x7F) is our special out-of-bounds trigger for OFF
-                    encoded_byte = 127 
-                    ser.write(bytes([encoded_byte]))
-                    print("-> Sent Packed Byte: 0x7F | Decodes to: OFF (0% Duty Cycle)")
-                    
-                elif 100 <= mag <= 200:
-                    # Strip the base 100 offset
-                    encoded_byte = mag - 100
-                    
-                    # Apply direction bit mask
-                    if val < 0:
-                        encoded_byte |= 0x80
-                    
-                    ser.write(bytes([encoded_byte]))
-                    
-                    dir_str = "Reverse" if val < 0 else "Forward"
-                    print(f"-> Sent Packed Byte: 0x{encoded_byte:02X} | Decodes to: {mag} kHz, {dir_str}")
-                else:
-                    print("Error: Frequency magnitude must be 0 (OFF), or strictly between 100 and 200.")
+            try:
+                val = int(val_str)
+                percent = abs(val)
+                
+                if percent > 100:
+                    print("Error: Percentage must be between 0 and 100.")
+                    continue
+                
+                # --- Construct Byte 1: Control ---
+                # Start with the MSB set to 1 (0x80)
+                byte_1 = 0x80 
+                
+                if motor_char == 'B':
+                    byte_1 |= 0x40  # Set Bit 6 for Motor B
+                
+                if val < 0:
+                    byte_1 |= 0x20  # Set Bit 5 for Reverse
+                
+                # --- Construct Byte 2: Payload ---
+                # Since percent is 0-100, MSB is naturally 0
+                byte_2 = percent 
+                
+                # Transmit both bytes
+                ser.write(bytes([byte_1, byte_2]))
+                
+                dir_str = "Reverse" if val < 0 else "Forward"
+                if percent == 0: dir_str = "OFF"
+                khz = percent * 2
+                
+                print(f"-> Motor {motor_char} | {percent}% ({khz} kHz) | {dir_str} | (Sent: 0x{byte_1:02X} 0x{byte_2:02X})")
                     
             except ValueError:
-                print("Invalid input. Please enter a valid number (e.g., 150, -150, or 0).")
+                print("Invalid number format. Example: -100A")
 
     except serial.SerialException as e:
-        print(f"Connection Error: {e}")
+        print(f"Error: {e}")
     finally:
         if 'ser' in locals() and ser.is_open:
             ser.close()
-            print("Port closed.")
 
 if __name__ == '__main__':
     main()
