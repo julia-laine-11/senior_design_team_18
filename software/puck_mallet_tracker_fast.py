@@ -43,9 +43,8 @@ TRAJECTORY_DAMPING = 0.95
 # Table bounds (pixels from edge)
 TABLE_BOUNDS = {"top": 50, "bottom": 50, "left": 50, "right": 50}
 
-# Motor UART settings (two motors, inversely proportional)
-MOTOR_PORT_A = 'COM4'         # Motor A port
-MOTOR_PORT_B = 'COM5'         # Motor B port
+# Motor UART settings (dual motor on single port)
+MOTOR_PORT = 'COM4'
 MOTOR_BAUD = 115200
 MOTOR_ENABLED = True          # Set False to run vision-only (no serial)
 
@@ -485,12 +484,11 @@ def tracking_thread(state, stop_event):
     h, w = frame.shape[:2]
     print(f"Camera: {w}x{h} @ {cap.get(cv2.CAP_PROP_FPS):.0f} FPS")
     
-    # --- Defense motor controller (dual motor) ---
+    # --- Defense motor controller (dual motor, single port) ---
     defense = None
     if MOTOR_ENABLED:
         try:
-            defense = DefenseController(port_a=MOTOR_PORT_A, port_b=MOTOR_PORT_B,
-                                        baud_rate=MOTOR_BAUD)
+            defense = DefenseController(port=MOTOR_PORT, baud_rate=MOTOR_BAUD)
         except Exception as e:
             print(f"[Defense] Motor init failed ({e}) – running vision-only")
     
