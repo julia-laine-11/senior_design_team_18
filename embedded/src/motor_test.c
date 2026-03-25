@@ -1,9 +1,11 @@
 #include "stm32f0xx.h"
 #include <stdint.h>
+#include <stdlib.h> // For abs()
 
+#define TEST_MODE 1
+#define WATCHDOG_MAX 50000 
 #define SYSTEM_CLOCK 8000000 
 
-// --- Motor A Abstraction (TIM1_CH2 on PA9) ---
 void set_motor_a(uint32_t percent, uint8_t is_rev) {
     if (percent == 0) {
         TIM1->CCR2 = 0; 
@@ -20,7 +22,6 @@ void set_motor_a(uint32_t percent, uint8_t is_rev) {
     TIM1->EGR |= TIM_EGR_UG; 
 }
 
-// --- Motor B Abstraction (TIM3_CH3 on PC8) ---
 void set_motor_b(uint32_t percent, uint8_t is_rev) {
     if (percent == 0) {
         TIM3->CCR3 = 0; 
@@ -37,24 +38,58 @@ void set_motor_b(uint32_t percent, uint8_t is_rev) {
     TIM3->EGR |= TIM_EGR_UG; 
 }
 
-void init_uart_rx(void) {
-    RCC->AHBENR |= RCC_AHBENR_GPIODEN;
+void init_uart(void) {
+    // Enable GPIOC (TX) and GPIOD (RX)
+    RCC->AHBENR |= RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIODEN;
     RCC->APB1ENR |= RCC_APB1ENR_USART5EN; 
+
+    // Setup PD2 as RX (Alternate Function 2)
     GPIOD->MODER &= ~GPIO_MODER_MODER2;
     GPIOD->MODER |= GPIO_MODER_MODER2_1;        
     GPIOD->AFR[0] &= ~(0xF << (2 * 4));         
     GPIOD->AFR[0] |= (2 << (2 * 4));            
+
+    // Setup PC12 as TX (Alternate Function 2)
+    GPIOC->MODER &= ~GPIO_MODER_MODER12;
+    GPIOC->MODER |= GPIO_MODER_MODER12_1;       
+    GPIOC->AFR[1] &= ~(0xF << ((12 - 8) * 4));  
+    GPIOC->AFR[1] |= (2 << ((12 - 8) * 4));     
+
     USART5->BRR = 8000000 / 115200;            
-    USART5->CR1 = USART_CR1_RE | USART_CR1_UE; 
+    
+    // Enable Receiver (RE), Transmitter (TE), and UART (UE)
+    USART5->CR1 = USART_CR1_RE | USART_CR1_TE | USART_CR1_UE; 
+}
+
+// Packages the counter into our 2-Byte Protocol and sends it to Python
+void send_counter(int32_t count) {
+    // Byte 1: Control (MSB = 1). Use Bit 6 to flag negative numbers.
+    uint8_t byte1 = 0x80; 
+    if (count < 0) {
+        byte1 |= 0x40; 
+    }
+    
+    // Byte 2: Payload (MSB = 0). Send the absolute value.
+    uint8_t byte2 = abs(count) & 0x7F;
+
+    // Transmit Byte 1
+    while (!(USART5->ISR & USART_ISR_TXE)); // Wait for Transmit Data Register to be empty
+    USART5->TDR = byte1;
+
+    // Transmit Byte 2
+    while (!(USART5->ISR & USART_ISR_TXE));
+    USART5->TDR = byte2;
 }
 
 int main(void) {
-    RCC->AHBENR  |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOCEN;
+    // Added GPIOBEN back in so PB2 works!
+    RCC->AHBENR  |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN;
     RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
     RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-    init_uart_rx();
+    
+    init_uart();
 
-    // Motor A Pins (PA8 DIR+, PC9 EN+, PA9 PUL+)
+    // Motor A Pins 
     GPIOA->MODER &= ~((3 << 16) | (3 << 18));
     GPIOA->MODER |= (1 << 16) | (2 << 18); 
     GPIOA->AFR[1] |= (2 << 4);     
@@ -63,12 +98,18 @@ int main(void) {
     GPIOA->BSRR = (1 << 8);        
     GPIOC->BRR  = (1 << 9);        
 
-    // Motor B Pins (PC7 DIR+, PC6 EN+, PC8 PUL+)
+    // Motor B Pins 
     GPIOC->MODER &= ~((3 << 12) | (3 << 14) | (3 << 16));
     GPIOC->MODER |= (1 << 12) | (1 << 14) | (2 << 16);
     GPIOC->AFR[1] &= ~(0xF << 0);  
     GPIOC->BSRR = (1 << 7);        
     GPIOC->BRR  = (1 << 6);        
+
+    // Setup Buttons (PA0 and PB2)
+    GPIOA->MODER &= ~(3 << 0);     
+    GPIOA->PUPDR |= (2 << 0);      
+    GPIOB->MODER &= ~(3 << 4);     
+    GPIOB->PUPDR |= (2 << 4);  
 
     // Init Timers
     TIM1->PSC = 0;
@@ -82,33 +123,58 @@ int main(void) {
     TIM3->CCER  |= TIM_CCER_CC3E;  
     TIM3->CR1   |= TIM_CR1_CEN;
 
-    // --- State Variables for the 2-Byte Protocol ---
     uint8_t pending_motor = 0;
     uint8_t pending_dir = 0;
+    uint32_t watchdog_timer = 0;
+    
+    // Game State / Counter Variables
+    int32_t game_counter = 0;
+    uint32_t pa0_debounce = 0;
+    uint32_t pb2_debounce = 0;
 
-    // 6. Main RX Loop
     while (1) {
+        // --- 1. Handle UART RX (From Camera/Python) ---
         if (USART5->ISR & USART_ISR_RXNE) {
             uint8_t rx = USART5->RDR;
-            
-            // Check the 8th bit (MSB)
             if (rx & 0x80) { 
-                // It's a Control Byte (MSB is 1)
                 pending_motor = (rx >> 6) & 0x01;
                 pending_dir   = (rx >> 5) & 0x01;
-            } 
-            else { 
-                // It's a Payload Byte (MSB is 0)
-                uint8_t percent = rx & 0x7F; // Strip MSB just in case
-                
-                if (percent <= 100) { // Safety check
-                    if (pending_motor == 0) {
-                        set_motor_a(percent, pending_dir);
-                    } else {
-                        set_motor_b(percent, pending_dir);
-                    }
+            } else { 
+                uint8_t percent = rx & 0x7F; 
+                if (percent <= 100) { 
+                    if (pending_motor == 0) set_motor_a(percent, pending_dir);
+                    else                    set_motor_b(percent, pending_dir);
+                    
+                    if (TEST_MODE == 0) watchdog_timer = 0;
                 }
             }
+        } 
+        else if (TEST_MODE == 0) {
+            watchdog_timer++;
+            if (watchdog_timer > WATCHDOG_MAX) {
+                set_motor_a(0, 0);
+                set_motor_b(0, 0);
+                watchdog_timer = WATCHDOG_MAX; 
+            }
+        }
+
+        // --- 2. Handle Non-Blocking Buttons (To Python) ---
+        // Cool down the debounce timers every loop
+        if (pa0_debounce > 0) pa0_debounce--;
+        if (pb2_debounce > 0) pb2_debounce--;
+
+        // PA0 (+1)
+        if ((GPIOA->IDR & (1 << 0)) && (pa0_debounce == 0)) {
+            game_counter++;
+            send_counter(game_counter);
+            pa0_debounce = 50000; // Lock out PA0 for roughly 100ms
+        }
+
+        // PB2 (-1)
+        if ((GPIOB->IDR & (1 << 2)) && (pb2_debounce == 0)) {
+            game_counter--;
+            send_counter(game_counter);
+            pb2_debounce = 50000; // Lock out PB2 for roughly 100ms
         }
     }
 }
