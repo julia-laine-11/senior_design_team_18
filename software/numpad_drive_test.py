@@ -34,6 +34,8 @@ FRAME_HEIGHT = 480
 
 # Motor UART
 MOTOR_PORT = 'COM4'
+# MOTOR_PORT = 'COM4' 
+MOTOR_PORT = '/dev/ttyUSB0' #linux
 MOTOR_BAUD = 115200
 
 # Defaults
