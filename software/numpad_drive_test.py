@@ -39,7 +39,7 @@ MOTOR_BAUD = 115200
 # Defaults
 DEFAULT_SPEED = 5
 DEFAULT_BOX_MARGINS = {"top": 20, "bottom": 20, "left": 20, "right": 20}
-DEFAULT_RED_MARGIN = 30
+DEFAULT_RED_MARGINS = {"top": 30, "bottom": 30, "left": 30, "right": 30}
 
 # Mallet HSV (same defaults as puck_mallet_tracker_fast.py)
 MALLET_HSV_LOW  = np.array([5, 127, 100], dtype=np.uint8)
@@ -88,7 +88,7 @@ class DriveState:
 
         # --- GUI-controlled parameters ---
         self.box_margins = DEFAULT_BOX_MARGINS.copy()
-        self.red_margin = DEFAULT_RED_MARGIN
+        self.red_margins = DEFAULT_RED_MARGINS.copy()
         self.speed = DEFAULT_SPEED
 
         self.mallet_hsv_low = list(MALLET_HSV_LOW)
@@ -114,13 +114,13 @@ class DriveState:
         with self.lock:
             self.box_margins[key] = int(float(val))
 
-    def get_red_margin(self):
+    def get_red_margins(self):
         with self.lock:
-            return self.red_margin
+            return self.red_margins.copy()
 
-    def set_red_margin(self, val):
+    def set_red_margin(self, key, val):
         with self.lock:
-            self.red_margin = int(float(val))
+            self.red_margins[key] = int(float(val))
 
     def get_speed(self):
         with self.lock:
@@ -212,14 +212,27 @@ class DriveGUI:
         box_frame.columnconfigure(1, weight=1)
         box_frame.columnconfigure(3, weight=1)
 
-        # --- Red Zone Margin ---
-        red_frame = ttk.LabelFrame(self.root, text="Red Zone Margin", padding=5)
+        # --- Red Zone Margins ---
+        red_frame = ttk.LabelFrame(self.root, text="Red Zone Margins (Red)",
+                                   padding=5)
         red_frame.pack(fill="x", padx=10, pady=4)
-        self.red_slider = ttk.Scale(red_frame, from_=0, to=150,
-                                    orient="horizontal")
-        self.red_slider.set(DEFAULT_RED_MARGIN)
-        self.red_slider.pack(fill="x")
-        self.red_slider.configure(command=lambda v: s.set_red_margin(v))
+        self.red_sliders = {}
+        for i, (name, default) in enumerate([
+            ("top", DEFAULT_RED_MARGINS["top"]),
+            ("bottom", DEFAULT_RED_MARGINS["bottom"]),
+            ("left", DEFAULT_RED_MARGINS["left"]),
+            ("right", DEFAULT_RED_MARGINS["right"]),
+        ]):
+            ttk.Label(red_frame, text=f"{name.title()}:").grid(
+                row=i // 2, column=(i % 2) * 2, sticky="w")
+            sl = ttk.Scale(red_frame, from_=0, to=150,
+                           orient="horizontal", length=80)
+            sl.set(default)
+            sl.grid(row=i // 2, column=(i % 2) * 2 + 1, sticky="ew", padx=2)
+            sl.configure(command=lambda v, n=name: s.set_red_margin(n, v))
+            self.red_sliders[name] = sl
+        red_frame.columnconfigure(1, weight=1)
+        red_frame.columnconfigure(3, weight=1)
 
         # --- Mallet HSV Calibration ---
         hsv_frame = ttk.LabelFrame(self.root, text="Mallet HSV (Orange)",
@@ -391,7 +404,7 @@ def drive_loop(state, stop_event):
         # ---- Read params from GUI state ----
         cur_speed = state.get_speed()
         margins = state.get_box_margins()
-        red_m = state.get_red_margin()
+        red_margins = state.get_red_margins()
         hsv_low, hsv_high = state.get_mallet_hsv()
 
         if ctrl:
@@ -399,7 +412,7 @@ def drive_loop(state, stop_event):
             ctrl.mallet_box = [
                 margins["left"], margins["top"],
                 w - margins["right"], h - margins["bottom"]]
-            ctrl.red_zone_margin = red_m
+            ctrl.red_zone_margins = red_margins
 
         # ---- Camera / detection ----
         if has_camera:
@@ -483,8 +496,8 @@ def drive_loop(state, stop_event):
         box = ctrl.mallet_box if ctrl else [
             margins["left"], margins["top"],
             w - margins["right"], h - margins["bottom"]]
-        red_rect = [box[0] + red_m, box[1] + red_m,
-                    box[2] - red_m, box[3] - red_m]
+        red_rect = [box[0] + red_margins["left"], box[1] + red_margins["top"],
+                    box[2] - red_margins["right"], box[3] - red_margins["bottom"]]
 
         # Mallet box (cyan)
         cv2.rectangle(vis, (box[0], box[1]), (box[2], box[3]),

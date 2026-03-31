@@ -35,9 +35,9 @@ class CoreXYController:
         # Calibrate these to match your camera view of the physical play area.
         self.mallet_box = [20, 20, 620, 460]
 
-        # Red zone: pixels INWARD from mallet box edge.
-        # If the mallet edge enters this band, motion toward that wall is blocked.
-        self.red_zone_margin = 30
+        # Red zone: pixels INWARD from mallet box edge (per-side).
+        # If the mallet edge enters this band, ALL motion is stopped.
+        self.red_zone_margins = {"top": 30, "bottom": 30, "left": 30, "right": 30}
 
         print(f"[CoreXY] Link on {port} @ {speed_pct}% speed")
 
@@ -67,9 +67,12 @@ class CoreXYController:
             self._motor('B', 0, False)
             return 0, 0, in_red
 
+        # Negate for physical motor wiring (flip both axes)
+        mdx, mdy = -dx, -dy
+
         # CoreXY: A = X + Y,  B = X - Y
-        raw_a = dx + dy
-        raw_b = dx - dy
+        raw_a = mdx + mdy
+        raw_b = mdx - mdy
 
         peak = max(abs(raw_a), abs(raw_b))
         a_pct = abs(raw_a) / peak * self.speed_pct if peak else 0
@@ -97,19 +100,19 @@ class CoreXYController:
 
     def get_red_zone_rect(self):
         """Inner rectangle of the red stop-zone [left, top, right, bottom]."""
-        m = self.red_zone_margin
+        rm = self.red_zone_margins
         return [
-            self.mallet_box[0] + m,
-            self.mallet_box[1] + m,
-            self.mallet_box[2] - m,
-            self.mallet_box[3] - m,
+            self.mallet_box[0] + rm["left"],
+            self.mallet_box[1] + rm["top"],
+            self.mallet_box[2] - rm["right"],
+            self.mallet_box[3] - rm["bottom"],
         ]
 
     def _enforce_bounds(self, mx, my, mr, dx, dy):
-        """Block directions that would push the mallet edge further into
-        the red zone.  Movement AWAY from the wall is always allowed."""
+        """If the mallet edge is inside the red zone, STOP completely.
+        No commands are sent while in the red zone."""
         bx0, by0, bx1, by1 = self.mallet_box
-        m = self.red_zone_margin
+        rm = self.red_zone_margins
         in_red = False
 
         # Mallet edges
@@ -118,29 +121,18 @@ class CoreXYController:
         edge_t = my - mr
         edge_b = my + mr
 
-        # Left red zone
-        if edge_l <= bx0 + m:
+        if edge_l <= bx0 + rm["left"]:
             in_red = True
-            if dx < 0:
-                dx = 0
+        if edge_r >= bx1 - rm["right"]:
+            in_red = True
+        if edge_t <= by0 + rm["top"]:
+            in_red = True
+        if edge_b >= by1 - rm["bottom"]:
+            in_red = True
 
-        # Right red zone
-        if edge_r >= bx1 - m:
-            in_red = True
-            if dx > 0:
-                dx = 0
-
-        # Top red zone
-        if edge_t <= by0 + m:
-            in_red = True
-            if dy < 0:
-                dy = 0
-
-        # Bottom red zone
-        if edge_b >= by1 - m:
-            in_red = True
-            if dy > 0:
-                dy = 0
+        # Full stop when ANY part of the mallet is in the red zone
+        if in_red:
+            dx, dy = 0, 0
 
         return dx, dy, in_red
 
