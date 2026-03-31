@@ -52,6 +52,11 @@ MALLET_MAX_RADIUS = 60
 # Hold-to-move: stop motors if no key event for this long
 KEY_RELEASE_TIMEOUT = 0.20   # seconds
 
+# Home position (G key)
+DEFAULT_HOME_X = FRAME_WIDTH // 2
+DEFAULT_HOME_Y = FRAME_HEIGHT // 2
+HOME_THRESHOLD = 15   # pixels – "arrived" when mallet centre is this close
+
 GUI_UPDATE_MS = 100
 
 # ===================== KEY MAPPINGS ======================
@@ -98,10 +103,14 @@ class DriveState:
 
         self.show_mask = False
 
+        self.home_x = DEFAULT_HOME_X
+        self.home_y = DEFAULT_HOME_Y
+
         # --- Status (written by drive thread, read by GUI) ---
         self.cmd_dir = (0, 0)
         self.actual_dir = (0, 0)
         self.in_red = False
+        self.homing = False
         self.mallet_pos = None        # (x, y, r) or None
         self.motor_info = "A: 0%  B: 0%"
         self.fps = 0.0
@@ -142,12 +151,25 @@ class DriveState:
             self.mallet_hsv_low = list(low)
             self.mallet_hsv_high = list(high)
 
-    def update_status(self, cmd_dir, actual_dir, in_red, mallet_pos,
+    def get_home_pos(self):
+        with self.lock:
+            return self.home_x, self.home_y
+
+    def set_home_x(self, val):
+        with self.lock:
+            self.home_x = int(float(val))
+
+    def set_home_y(self, val):
+        with self.lock:
+            self.home_y = int(float(val))
+
+    def update_status(self, cmd_dir, actual_dir, in_red, homing, mallet_pos,
                       motor_info, fps):
         with self.lock:
             self.cmd_dir = cmd_dir
             self.actual_dir = actual_dir
             self.in_red = in_red
+            self.homing = homing
             self.mallet_pos = mallet_pos
             self.motor_info = motor_info
             self.fps = fps
@@ -161,7 +183,7 @@ class DriveGUI:
         self.state = state
         self.root = tk.Tk()
         self.root.title("CoreXY Drive Controls")
-        self.root.geometry("420x750")
+        self.root.geometry("420x880")
         self._create_widgets()
         self._start_update()
 
@@ -227,7 +249,7 @@ class DriveGUI:
         ]):
             ttk.Label(red_frame, text=f"{name.title()}:").grid(
                 row=i // 2, column=(i % 2) * 2, sticky="w")
-            sl = ttk.Scale(red_frame, from_=0, to=150,
+            sl = ttk.Scale(red_frame, from_=0, to=640,
                            orient="horizontal", length=80)
             sl.set(default)
             sl.grid(row=i // 2, column=(i % 2) * 2 + 1, sticky="ew", padx=2)
@@ -235,6 +257,24 @@ class DriveGUI:
             self.red_sliders[name] = sl
         red_frame.columnconfigure(1, weight=1)
         red_frame.columnconfigure(3, weight=1)
+
+        # --- Home Position ---
+        home_frame = ttk.LabelFrame(self.root, text="Home Position (G key)",
+                                    padding=5)
+        home_frame.pack(fill="x", padx=10, pady=4)
+        ttk.Label(home_frame, text="X:").grid(row=0, column=0, sticky="w")
+        self.home_x_slider = ttk.Scale(home_frame, from_=0, to=FRAME_WIDTH,
+                                       orient="horizontal", length=140)
+        self.home_x_slider.set(DEFAULT_HOME_X)
+        self.home_x_slider.grid(row=0, column=1, sticky="ew", padx=2)
+        self.home_x_slider.configure(command=lambda v: s.set_home_x(v))
+        ttk.Label(home_frame, text="Y:").grid(row=1, column=0, sticky="w")
+        self.home_y_slider = ttk.Scale(home_frame, from_=0, to=FRAME_HEIGHT,
+                                       orient="horizontal", length=140)
+        self.home_y_slider.set(DEFAULT_HOME_Y)
+        self.home_y_slider.grid(row=1, column=1, sticky="ew", padx=2)
+        self.home_y_slider.configure(command=lambda v: s.set_home_y(v))
+        home_frame.columnconfigure(1, weight=1)
 
         # --- Mallet HSV Calibration ---
         hsv_frame = ttk.LabelFrame(self.root, text="Mallet HSV (Orange)",
@@ -308,6 +348,7 @@ class DriveGUI:
                 cmd = s.cmd_dir
                 act = s.actual_dir
                 red = s.in_red
+                is_homing = s.homing
                 mpos = s.mallet_pos
                 minfo = s.motor_info
                 fps = s.fps
@@ -316,8 +357,11 @@ class DriveGUI:
             self.fps_label.config(text=f"FPS: {fps:.0f}")
             self.speed_val_label.config(text=f"{spd}")
 
-            act_name = DIR_NAMES.get(act, "?")
-            self.dir_label.config(text=f"Dir: {act_name}")
+            # Rotate display direction 90° CW (robot mounted 90° off)
+            disp = (-act[1], act[0])
+            disp_name = DIR_NAMES.get(disp, "?")
+            homing_tag = " [HOME]" if is_homing else ""
+            self.dir_label.config(text=f"Dir: {disp_name}{homing_tag}")
             self.motor_label.config(text=f"Motors: {minfo}")
 
             if mpos:
@@ -391,6 +435,7 @@ def drive_loop(state, stop_event):
     # ---- Loop state ----
     dx, dy = 0, 0
     last_key_time = 0.0
+    homing = False
     mallet_x, mallet_y, mallet_r = None, None, 0
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 
@@ -447,16 +492,33 @@ def drive_loop(state, stop_event):
             masked = key & 0xFF
             if masked == ord('q') or masked == 27:
                 break
-            if key in KEY_MAP:
+            elif masked == ord('g'):
+                homing = True
+                last_key_time = now
+            elif key in KEY_MAP:
+                homing = False
                 dx, dy = KEY_MAP[key]
                 last_key_time = now
             elif masked in KEY_MAP:
+                homing = False
                 dx, dy = KEY_MAP[masked]
                 last_key_time = now
 
         # Auto-stop when key released
         if now - last_key_time > KEY_RELEASE_TIMEOUT:
             dx, dy = 0, 0
+            homing = False
+
+        # Home-seeking: compute direction toward home position
+        if homing and mallet_x is not None:
+            hx, hy = state.get_home_pos()
+            diff_x = hx - mallet_x
+            diff_y = hy - mallet_y
+            if abs(diff_x) < HOME_THRESHOLD and abs(diff_y) < HOME_THRESHOLD:
+                dx, dy = 0, 0   # arrived
+            else:
+                dx = 0 if abs(diff_x) < HOME_THRESHOLD else (1 if diff_x > 0 else -1)
+                dy = 0 if abs(diff_y) < HOME_THRESHOLD else (1 if diff_y > 0 else -1)
 
         # ---- Drive ----
         actual_dx, actual_dy, in_red = 0, 0, False
@@ -488,6 +550,7 @@ def drive_loop(state, stop_event):
             cmd_dir=(dx, dy),
             actual_dir=(actual_dx, actual_dy),
             in_red=in_red,
+            homing=homing,
             mallet_pos=(mallet_x, mallet_y, mallet_r)
                        if mallet_x is not None else None,
             motor_info=motor_info,
@@ -531,19 +594,31 @@ def drive_loop(state, stop_event):
                        int(mallet_r), mc, 3)
             cv2.circle(vis, (int(mallet_x), int(mallet_y)), 3, mc, -1)
 
-        # Direction arrow
+        # Home position marker (green crosshair)
+        hx, hy = state.get_home_pos()
+        cv2.drawMarker(vis, (hx, hy), (0, 255, 0), cv2.MARKER_CROSS, 20, 2)
+        if homing and mallet_x is not None:
+            cv2.line(vis, (int(mallet_x), int(mallet_y)), (hx, hy),
+                     (0, 255, 0), 1, cv2.LINE_AA)
+
+        # Direction arrow (rotated 90° CW to match camera orientation)
         cx, cy = w // 2, 35
-        if actual_dx != 0 or actual_dy != 0:
+        # 90° CW on screen: (dx, dy) → (-dy, dx)
+        arrow_dx = -actual_dy
+        arrow_dy = actual_dx
+        if arrow_dx != 0 or arrow_dy != 0:
             cv2.arrowedLine(vis, (cx, cy),
-                            (cx + actual_dx * 20, cy + actual_dy * 20),
+                            (cx + arrow_dx * 20, cy + arrow_dy * 20),
                             (0, 255, 0), 3, tipLength=0.4)
         else:
             cv2.circle(vis, (cx, cy), 6, (128, 128, 128), -1)
 
         # Text overlay
         y0 = h - 70
-        act_name = DIR_NAMES.get((actual_dx, actual_dy), "?")
-        cv2.putText(vis, f"Dir: {act_name}  Motors: {motor_info}",
+        disp_dir = (-actual_dy, actual_dx)  # 90° CW
+        act_name = DIR_NAMES.get(disp_dir, "?")
+        home_tag = " [HOME]" if homing else ""
+        cv2.putText(vis, f"Dir: {act_name}{home_tag}  Motors: {motor_info}",
                     (10, y0), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
                     (255, 255, 255), 1)
         cv2.putText(vis, f"Speed: {cur_speed}%   FPS: {fps:.0f}",
@@ -566,8 +641,8 @@ def drive_loop(state, stop_event):
                         (0, 0, 255), 2)
 
         # Key legend
-        cv2.putText(vis, "7 8 9 / 4 5 6 / 1 2 3  WASD  Arrows",
-                    (w - 310, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.33,
+        cv2.putText(vis, "7 8 9 / 4 5 6 / 1 2 3  WASD  Arrows  G=Home",
+                    (w - 350, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.33,
                     (200, 200, 200), 1)
 
         cv2.imshow("Numpad Drive Test", vis)
