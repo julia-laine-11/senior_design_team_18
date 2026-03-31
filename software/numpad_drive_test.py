@@ -510,6 +510,9 @@ def drive_loop(state, stop_event):
             homing = False
 
         # Home-seeking: compute direction toward home position
+        # Camera pixel direction must be converted to command direction
+        # using the inverse of the 90° CW display rotation:
+        #   cmd = (cam_dy, -cam_dx)
         if homing and mallet_x is not None:
             hx, hy = state.get_home_pos()
             diff_x = hx - mallet_x
@@ -517,8 +520,11 @@ def drive_loop(state, stop_event):
             if abs(diff_x) < HOME_THRESHOLD and abs(diff_y) < HOME_THRESHOLD:
                 dx, dy = 0, 0   # arrived
             else:
-                dx = 0 if abs(diff_x) < HOME_THRESHOLD else (1 if diff_x > 0 else -1)
-                dy = 0 if abs(diff_y) < HOME_THRESHOLD else (1 if diff_y > 0 else -1)
+                cam_dx = 0 if abs(diff_x) < HOME_THRESHOLD else (1 if diff_x > 0 else -1)
+                cam_dy = 0 if abs(diff_y) < HOME_THRESHOLD else (1 if diff_y > 0 else -1)
+                # Inverse 90° CW: camera → command
+                dx = cam_dy
+                dy = -cam_dx
 
         # ---- Drive ----
         actual_dx, actual_dy, in_red = 0, 0, False
