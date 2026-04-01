@@ -1,25 +1,39 @@
-# CoreXY Differential Drive Controller
-# Two stepper motors geared the same direction – single motor = diagonal,
+# CoreXY Velocity-Based Differential Drive Controller
+# Two stepper motors, same gearing, same direction – single motor = diagonal,
 # both together = cardinal axis (like an XY 3D-printer gantry).
 #
 # CoreXY kinematics:
-#   Motor A = X + Y   (both same dir → +X, opposite dir → +Y)
-#   Motor B = X - Y
+#   Motor A = Vx + Vy   (both same dir → +X, opposite dir → +Y)
+#   Motor B = Vx - Vy
+#
+# Physical parameters:
+#   Step angle  : 2°  → 180 steps/rev
+#   Gear radius : 1.5"  → circumference ≈ 9.42"
+#   Belt travel per step ≈ 0.0524"
 #
 # Uses the same 2-byte UART packet as defense_controller.py:
 #   Byte 1 (Control):  0x80 | [motor B: 0x40] | [reverse: 0x20]
 #   Byte 2 (Payload):  0-100  speed level (stepping frequency)
+#   50 % duty-cycle is maintained by the driver hardware.
 #
-# IMPORTANT: The motor driver hardware maintains a fixed 50 % duty-cycle.
-# Byte 2 controls the STEPPING FREQUENCY, not the duty-cycle width.
-# Lower values = slower stepping, higher = faster.  0 = stopped.
+# Velocity control:
+#   Caller provides a continuous velocity vector (vx, vy).
+#   The controller normalises so the fastest motor = min(speed_pct, 65%).
 #
-# Includes mallet-box boundary enforcement with a red "stop zone."
-# When the mallet EDGE (center ± radius) enters the red zone, movement
-# toward that boundary is blocked, but movement AWAY is still allowed
-# so the mallet can always escape.
+# Red-zone boundary:
+#   Movement INTO the red zone is blocked per-axis.
+#   Movement AWAY (escaping) is always allowed.
 
+import math
 import serial
+
+# --- Physical constants ---
+STEP_ANGLE_DEG = 2.0
+GEAR_RADIUS_IN = 1.5
+STEPS_PER_REV = 360.0 / STEP_ANGLE_DEG            # 180
+GEAR_CIRC_IN = 2.0 * math.pi * GEAR_RADIUS_IN     # ~9.42"
+DIST_PER_STEP_IN = GEAR_CIRC_IN / STEPS_PER_REV   # ~0.0524"
+MAX_MOTOR_PCT = 65                                 # hard cap per motor
 
 
 class CoreXYController:
@@ -45,43 +59,48 @@ class CoreXYController:
     # Public API
     # ------------------------------------------------------------------
 
-    def drive(self, dx, dy, mallet_x=None, mallet_y=None, mallet_r=0):
-        """Send a direction command through CoreXY kinematics.
+    def drive(self, vx, vy, mallet_x=None, mallet_y=None, mallet_r=0):
+        """Drive with a continuous velocity vector.
 
-        dx, dy : each in {-1, 0, 1}  (screen coordinates – right/down positive)
+        vx, vy : any float – direction AND ratio matter; magnitude is
+                 normalised so the fastest motor = min(speed_pct, 65 %).
         mallet_x, mallet_y : mallet centre in pixels (for boundary check)
         mallet_r : mallet radius in pixels
 
-        Returns (actual_dx, actual_dy, in_red_zone).
+        Returns (actual_vx, actual_vy, in_red_zone).
         """
         in_red = False
 
-        # Boundary enforcement (modifies dx/dy if needed)
+        # Boundary enforcement (may zero individual components)
         if mallet_x is not None and mallet_y is not None:
-            dx, dy, in_red = self._enforce_bounds(
-                mallet_x, mallet_y, mallet_r, dx, dy
+            vx, vy, in_red = self._enforce_bounds(
+                mallet_x, mallet_y, mallet_r, vx, vy
             )
 
-        if dx == 0 and dy == 0:
+        if vx == 0 and vy == 0:
             self._motor('A', 0, False)
             self._motor('B', 0, False)
-            return 0, 0, in_red
+            return 0.0, 0.0, in_red
 
         # Negate for physical motor wiring (flip both axes)
-        mdx, mdy = -dx, -dy
+        mvx, mvy = -vx, -vy
 
-        # CoreXY: A = X + Y,  B = X - Y
-        raw_a = mdx + mdy
-        raw_b = mdx - mdy
+        # CoreXY: A = Vx + Vy,  B = Vx - Vy
+        raw_a = mvx + mvy
+        raw_b = mvx - mvy
 
+        # Normalise so fastest motor = min(speed_pct, MAX_MOTOR_PCT)
         peak = max(abs(raw_a), abs(raw_b))
-        a_pct = abs(raw_a) / peak * self.speed_pct if peak else 0
-        b_pct = abs(raw_b) / peak * self.speed_pct if peak else 0
+        cap = min(self.speed_pct, MAX_MOTOR_PCT)
+        scale = cap / peak if peak else 0
+
+        a_pct = abs(raw_a) * scale
+        b_pct = abs(raw_b) * scale
 
         self._motor('A', int(round(a_pct)), raw_a < 0)
         self._motor('B', int(round(b_pct)), raw_b < 0)
 
-        return dx, dy, in_red
+        return vx, vy, in_red
 
     def stop(self):
         """Immediately stop both motors."""
@@ -108,9 +127,9 @@ class CoreXYController:
             self.mallet_box[3] - rm["bottom"],
         ]
 
-    def _enforce_bounds(self, mx, my, mr, dx, dy):
-        """If the mallet edge is inside the red zone, STOP completely.
-        No commands are sent while in the red zone."""
+    def _enforce_bounds(self, mx, my, mr, vx, vy):
+        """Block velocity components that push further into the red zone.
+        Movement AWAY from the zone is always allowed (escape)."""
         bx0, by0, bx1, by1 = self.mallet_box
         rm = self.red_zone_margins
         in_red = False
@@ -121,20 +140,31 @@ class CoreXYController:
         edge_t = my - mr
         edge_b = my + mr
 
+        # Left red zone – block leftward
         if edge_l <= bx0 + rm["left"]:
             in_red = True
+            if vx < 0:
+                vx = 0
+
+        # Right red zone – block rightward
         if edge_r >= bx1 - rm["right"]:
             in_red = True
+            if vx > 0:
+                vx = 0
+
+        # Top red zone – block upward
         if edge_t <= by0 + rm["top"]:
             in_red = True
+            if vy < 0:
+                vy = 0
+
+        # Bottom red zone – block downward
         if edge_b >= by1 - rm["bottom"]:
             in_red = True
+            if vy > 0:
+                vy = 0
 
-        # Full stop when ANY part of the mallet is in the red zone
-        if in_red:
-            dx, dy = 0, 0
-
-        return dx, dy, in_red
+        return vx, vy, in_red
 
     # ------------------------------------------------------------------
     # UART helpers  (same protocol as defense_controller.py)

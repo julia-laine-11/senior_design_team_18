@@ -23,7 +23,7 @@ import tkinter as tk
 from tkinter import ttk
 from threading import Thread, Lock, Event
 
-from corexy_controller import CoreXYController
+from corexy_controller import CoreXYController, MAX_MOTOR_PCT
 
 # ===================== CONFIGURATION =====================
 
@@ -201,10 +201,10 @@ class DriveGUI:
         self.fps_label.pack()
 
         # --- Speed ---
-        spd = ttk.LabelFrame(self.root, text="Speed (stepping freq level)",
-                              padding=8)
+        spd = ttk.LabelFrame(self.root,
+                              text=f"Speed (max {MAX_MOTOR_PCT}%)", padding=8)
         spd.pack(fill="x", padx=10, pady=4)
-        self.speed_slider = ttk.Scale(spd, from_=1, to=100,
+        self.speed_slider = ttk.Scale(spd, from_=1, to=MAX_MOTOR_PCT,
                                       orient="horizontal")
         self.speed_slider.set(DEFAULT_SPEED)
         self.speed_slider.pack(fill="x")
@@ -358,7 +358,12 @@ class DriveGUI:
             self.speed_val_label.config(text=f"{spd}")
 
             # Rotate display direction 90° CW (robot mounted 90° off)
-            disp = (-act[1], act[0])
+            d_x = -act[1]
+            d_y = act[0]
+            disp = (
+                (1 if d_x > 0.01 else (-1 if d_x < -0.01 else 0)),
+                (1 if d_y > 0.01 else (-1 if d_y < -0.01 else 0)),
+            )
             disp_name = DIR_NAMES.get(disp, "?")
             homing_tag = " [HOME]" if is_homing else ""
             self.dir_label.config(text=f"Dir: {disp_name}{homing_tag}")
@@ -433,7 +438,8 @@ def drive_loop(state, stop_event):
         print(f"  Motor init failed ({e}) – vision only mode.")
 
     # ---- Loop state ----
-    dx, dy = 0, 0
+    dx, dy = 0, 0           # discrete direction from keys
+    vx, vy = 0.0, 0.0      # velocity sent to controller
     last_key_time = 0.0
     homing = False
     mallet_x, mallet_y, mallet_r = None, None, 0
@@ -509,36 +515,38 @@ def drive_loop(state, stop_event):
             dx, dy = 0, 0
             homing = False
 
-        # Home-seeking: compute direction toward home position
-        # Camera pixel direction must be converted to command direction
-        # using the inverse of the 90° CW display rotation:
-        #   cmd = (cam_dy, -cam_dx)
+        # ---- Build velocity vector ----
         if homing and mallet_x is not None:
+            # Linear homing: continuous velocity toward home
             hx, hy = state.get_home_pos()
             diff_x = hx - mallet_x
             diff_y = hy - mallet_y
-            if abs(diff_x) < HOME_THRESHOLD and abs(diff_y) < HOME_THRESHOLD:
-                dx, dy = 0, 0   # arrived
+            dist = (diff_x * diff_x + diff_y * diff_y) ** 0.5
+            if dist < HOME_THRESHOLD:
+                vx, vy = 0.0, 0.0   # arrived
             else:
-                cam_dx = 0 if abs(diff_x) < HOME_THRESHOLD else (1 if diff_x > 0 else -1)
-                cam_dy = 0 if abs(diff_y) < HOME_THRESHOLD else (1 if diff_y > 0 else -1)
                 # Inverse 90° CW: camera → command
-                dx = cam_dy
-                dy = -cam_dx
+                vx = float(diff_y)
+                vy = float(-diff_x)
+        else:
+            # Manual: discrete direction from key input
+            vx, vy = float(dx), float(dy)
 
         # ---- Drive ----
-        actual_dx, actual_dy, in_red = 0, 0, False
+        actual_vx, actual_vy, in_red = 0.0, 0.0, False
         if ctrl:
-            actual_dx, actual_dy, in_red = ctrl.drive(
-                dx, dy, mallet_x, mallet_y, mallet_r)
+            actual_vx, actual_vy, in_red = ctrl.drive(
+                vx, vy, mallet_x, mallet_y, mallet_r)
 
         # ---- Compute motor info string ----
-        if actual_dx != 0 or actual_dy != 0:
-            ra = actual_dx + actual_dy
-            rb = actual_dx - actual_dy
+        if actual_vx != 0 or actual_vy != 0:
+            mvx, mvy = -actual_vx, -actual_vy   # same negation as controller
+            ra = mvx + mvy
+            rb = mvx - mvy
             pk = max(abs(ra), abs(rb))
-            a_pct = abs(ra) / pk * cur_speed if pk else 0
-            b_pct = abs(rb) / pk * cur_speed if pk else 0
+            cap = min(cur_speed, MAX_MOTOR_PCT)
+            a_pct = abs(ra) / pk * cap if pk else 0
+            b_pct = abs(rb) / pk * cap if pk else 0
             a_dir = "REV" if ra < 0 else "FWD"
             b_dir = "REV" if rb < 0 else "FWD"
             motor_info = f"A:{a_pct:.0f}% {a_dir}  B:{b_pct:.0f}% {b_dir}"
@@ -553,8 +561,8 @@ def drive_loop(state, stop_event):
 
         # ---- Update shared status ----
         state.update_status(
-            cmd_dir=(dx, dy),
-            actual_dir=(actual_dx, actual_dy),
+            cmd_dir=(vx, vy),
+            actual_dir=(actual_vx, actual_vy),
             in_red=in_red,
             homing=homing,
             mallet_pos=(mallet_x, mallet_y, mallet_r)
@@ -609,25 +617,34 @@ def drive_loop(state, stop_event):
 
         # Direction arrow (rotated 90° CW to match camera orientation)
         cx, cy = w // 2, 35
-        # 90° CW on screen: (dx, dy) → (-dy, dx)
-        arrow_dx = -actual_dy
-        arrow_dy = actual_dx
-        if arrow_dx != 0 or arrow_dy != 0:
+        # 90° CW on screen: (vx, vy) → (-vy, vx)
+        arrow_dx = -actual_vy
+        arrow_dy = actual_vx
+        arrow_mag = max(abs(arrow_dx), abs(arrow_dy))
+        if arrow_mag > 0.01:
+            arrow_dx = arrow_dx / arrow_mag * 20
+            arrow_dy = arrow_dy / arrow_mag * 20
             cv2.arrowedLine(vis, (cx, cy),
-                            (cx + arrow_dx * 20, cy + arrow_dy * 20),
+                            (cx + int(arrow_dx), cy + int(arrow_dy)),
                             (0, 255, 0), 3, tipLength=0.4)
         else:
             cv2.circle(vis, (cx, cy), 6, (128, 128, 128), -1)
 
         # Text overlay
         y0 = h - 70
-        disp_dir = (-actual_dy, actual_dx)  # 90° CW
+        # Discretise for direction name lookup
+        d_x = -actual_vy
+        d_y = actual_vx
+        disp_dir = (
+            (1 if d_x > 0.01 else (-1 if d_x < -0.01 else 0)),
+            (1 if d_y > 0.01 else (-1 if d_y < -0.01 else 0)),
+        )
         act_name = DIR_NAMES.get(disp_dir, "?")
         home_tag = " [HOME]" if homing else ""
         cv2.putText(vis, f"Dir: {act_name}{home_tag}  Motors: {motor_info}",
                     (10, y0), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
                     (255, 255, 255), 1)
-        cv2.putText(vis, f"Speed: {cur_speed}%   FPS: {fps:.0f}",
+        cv2.putText(vis, f"Speed: {min(cur_speed, MAX_MOTOR_PCT)}%   FPS: {fps:.0f}",
                     (10, y0 + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
                     (255, 255, 255), 1)
         if mallet_x is not None:
