@@ -15,6 +15,18 @@
 #
 # Speed byte controls STEPPING FREQUENCY (50% duty-cycle is
 # maintained by the motor driver hardware).
+#
+# ===================== DEPENDENCIES (Linux) =====================
+#   sudo apt update
+#   sudo apt install python3 python3-pip python3-tk
+#   pip3 install opencv-python numpy pyserial
+#
+# If running headless or on a minimal distro you may also need:
+#   sudo apt install libgl1-mesa-glx libglib2.0-0
+#
+# For camera access make sure your user is in the 'video' group:
+#   sudo usermod -aG video $USER
+# ================================================================
 
 import numpy as np
 import cv2
@@ -572,9 +584,9 @@ def _drive_loop_inner(state, stop_event, ctrl, cap, has_camera, w, h, kernel):
             ra = mvx + mvy
             rb = mvx - mvy
             pk = max(abs(ra), abs(rb))
-            cap = min(cur_speed, MAX_MOTOR_PCT)
-            a_pct = abs(ra) / pk * cap if pk else 0
-            b_pct = abs(rb) / pk * cap if pk else 0
+            speed_cap = min(cur_speed, MAX_MOTOR_PCT)
+            a_pct = abs(ra) / pk * speed_cap if pk else 0
+            b_pct = abs(rb) / pk * speed_cap if pk else 0
             a_dir = "REV" if ra < 0 else "FWD"
             b_dir = "REV" if rb < 0 else "FWD"
             motor_info = f"A:{a_pct:.0f}% {a_dir}  B:{b_pct:.0f}% {b_dir}"
