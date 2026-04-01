@@ -68,15 +68,15 @@ RED_ZONE_MARGINS = {"top": 30, "bottom": 30, "left": 30, "right": 30}
 DEFAULT_SPEED = 15
 
 # Home position (pixels)
-DEFAULT_HOME_X = FRAME_WIDTH // 2
-DEFAULT_HOME_Y = 60
+DEFAULT_HOME_X = 60
+DEFAULT_HOME_Y = FRAME_HEIGHT // 2
 HOME_THRESHOLD = 15
 
-# Goal definition (pixels – centered along the defense end)
-DEFAULT_GOAL_X = FRAME_WIDTH // 2
-DEFAULT_GOAL_Y = 50
-DEFAULT_GOAL_WIDTH = 200
-DEFAULT_GOAL_HEIGHT = 30
+# Goal definition – vertical line on the LEFT side of the table.
+# Puck attacks from right → left.  The mallet patrols this line.
+DEFAULT_GOAL_X = 50               # X position of the defense line
+DEFAULT_GOAL_Y = FRAME_HEIGHT // 2 # centre Y of the goal opening
+DEFAULT_GOAL_LENGTH = 200          # vertical extent of the goal opening
 
 # Trajectory / interception
 TRAJECTORY_DAMPING = 0.95
@@ -202,21 +202,24 @@ def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02):
     return points
 
 
-def predict_intercept(px, py, pvx, pvy, goal_y, goal_x, goal_w,
+def predict_intercept(px, py, pvx, pvy, goal_x, goal_y, goal_len,
                       table_left, table_right, table_top, table_bottom,
                       damping=0.95, max_t=2.0, dt=0.02):
-    """Predict where the puck crosses the goal Y line within the goal width.
+    """Predict where the puck crosses the vertical goal line (x = goal_x).
 
-    Simulates trajectory with wall bounces.  Side walls reflect; end-wall
-    reflection only happens when the crossing X is OUTSIDE the goal opening
-    (hit the wall beside the goal).
+    The goal is a vertical segment from goal_y - goal_len/2 to
+    goal_y + goal_len/2.  Puck attacks from right to left.
 
-    Returns (intercept_x, goal_y) or None.
+    Simulates trajectory with wall bounces.  Top/bottom walls always
+    reflect.  The left wall reflects only when the crossing Y is OUTSIDE
+    the goal opening (hit wall beside goal).
+
+    Returns (goal_x, intercept_y) or None.
     """
     x, y = float(px), float(py)
     vx, vy = float(pvx), float(pvy)
-    goal_left = goal_x - goal_w / 2.0
-    goal_right = goal_x + goal_w / 2.0
+    goal_top = goal_y - goal_len / 2.0
+    goal_bot = goal_y + goal_len / 2.0
 
     for _ in range(int(max_t / dt)):
         prev_x, prev_y = x, y
@@ -224,31 +227,31 @@ def predict_intercept(px, py, pvx, pvy, goal_y, goal_x, goal_w,
         y += vy * dt
 
         # --- Check goal-line crossing BEFORE wall bounces ---
-        crossed_up = (prev_y > goal_y and y <= goal_y)
-        crossed_down = (prev_y < goal_y and y >= goal_y)
+        crossed_left = (prev_x > goal_x and x <= goal_x)
+        crossed_right = (prev_x < goal_x and x >= goal_x)
 
-        if crossed_up or crossed_down:
-            # Linear interpolation for the X at goal_y
-            dy = y - prev_y
-            if abs(dy) > 0.001:
-                t_frac = (goal_y - prev_y) / dy
-                cross_x = prev_x + vx * dt * t_frac
+        if crossed_left or crossed_right:
+            # Linear interpolation for the Y at goal_x
+            dx = x - prev_x
+            if abs(dx) > 0.001:
+                t_frac = (goal_x - prev_x) / dx
+                cross_y = prev_y + vy * dt * t_frac
             else:
-                cross_x = x
-            if goal_left <= cross_x <= goal_right:
-                return (cross_x, float(goal_y))
+                cross_y = y
+            if goal_top <= cross_y <= goal_bot:
+                return (float(goal_x), cross_y)
 
-        # --- Side-wall bounces ---
-        if x <= table_left:
-            x, vx = table_left, abs(vx) * damping
-        elif x >= table_right:
-            x, vx = table_right, -abs(vx) * damping
-
-        # --- End-wall bounces ---
+        # --- Top / bottom wall bounces ---
         if y <= table_top:
             y, vy = table_top, abs(vy) * damping
         elif y >= table_bottom:
             y, vy = table_bottom, -abs(vy) * damping
+
+        # --- Left / right wall bounces ---
+        if x <= table_left:
+            x, vx = table_left, abs(vx) * damping
+        elif x >= table_right:
+            x, vx = table_right, -abs(vx) * damping
 
         if vx * vx + vy * vy < 25:
             break
@@ -321,8 +324,7 @@ class GameState:
         self.home_y = DEFAULT_HOME_Y
         self.goal_x = DEFAULT_GOAL_X
         self.goal_y = DEFAULT_GOAL_Y
-        self.goal_width = DEFAULT_GOAL_WIDTH
-        self.goal_height = DEFAULT_GOAL_HEIGHT
+        self.goal_length = DEFAULT_GOAL_LENGTH
 
         # Display toggles
         self.show_mask = False
@@ -407,7 +409,7 @@ class GameState:
 
     def get_goal(self):
         with self.lock:
-            return self.goal_x, self.goal_y, self.goal_width, self.goal_height
+            return self.goal_x, self.goal_y, self.goal_length
 
     def set_goal_param(self, param, val):
         with self.lock:
@@ -509,27 +511,25 @@ class ControlGUI:
             spd_f, text=f"{DEFAULT_SPEED}%", font=("Courier", 10))
         self.speed_val.pack()
 
-        # Goal
-        goal_f = ttk.LabelFrame(game_tab, text="Goal (Yellow)", padding=5)
+        # Goal (vertical line on the left side)
+        goal_f = ttk.LabelFrame(game_tab, text="Goal (Yellow, Vertical)", padding=5)
         goal_f.pack(fill="x", padx=8, pady=4)
         self.goal_sliders = {}
         for i, (label, param, default, mx) in enumerate([
             ("X", "x", DEFAULT_GOAL_X, self.fw),
             ("Y", "y", DEFAULT_GOAL_Y, self.fh),
-            ("Width", "width", DEFAULT_GOAL_WIDTH, self.fw),
-            ("Height", "height", DEFAULT_GOAL_HEIGHT, self.fh // 2),
+            ("Length", "length", DEFAULT_GOAL_LENGTH, self.fh),
         ]):
             ttk.Label(goal_f, text=f"{label}:").grid(
-                row=i // 2, column=(i % 2) * 2, sticky="w")
+                row=i, column=0, sticky="w")
             sl = ttk.Scale(goal_f, from_=0, to=mx,
-                           orient="horizontal", length=90)
+                           orient="horizontal", length=140)
             sl.set(default)
-            sl.grid(row=i // 2, column=(i % 2) * 2 + 1, sticky="ew", padx=2)
+            sl.grid(row=i, column=1, sticky="ew", padx=2)
             sl.configure(
                 command=lambda v, p=param: s.set_goal_param(p, v))
             self.goal_sliders[param] = sl
         goal_f.columnconfigure(1, weight=1)
-        goal_f.columnconfigure(3, weight=1)
 
         # Home position
         home_f = ttk.LabelFrame(
@@ -766,7 +766,7 @@ class ControlGUI:
         red = s.get_red_margins()
         pl, ph = s.get_puck_hsv()
         ml, mh = s.get_mallet_hsv()
-        gx, gy, gw, gh = s.get_goal()
+        gx, gy, gl = s.get_goal()
         hx, hy = s.get_home()
         spd = s.get_speed()
 
@@ -787,8 +787,7 @@ class ControlGUI:
         print(f'DEFAULT_HOME_Y = {hy}')
         print(f'DEFAULT_GOAL_X = {gx}')
         print(f'DEFAULT_GOAL_Y = {gy}')
-        print(f'DEFAULT_GOAL_WIDTH = {gw}')
-        print(f'DEFAULT_GOAL_HEIGHT = {gh}')
+        print(f'DEFAULT_GOAL_LENGTH = {gl}')
         print(f'PUCK_HSV_LOW = np.array([{pl[0]}, {pl[1]}, {pl[2]}], '
               f'dtype=np.uint8)')
         print(f'PUCK_HSV_HIGH = np.array([{ph[0]}, {ph[1]}, {ph[2]}], '
@@ -797,7 +796,7 @@ class ControlGUI:
               f'dtype=np.uint8)')
         print(f'MALLET_HSV_HIGH = np.array([{mh[0]}, {mh[1]}, {mh[2]}], '
               f'dtype=np.uint8)')
-        # Computed rects
+        # Computed positions
         rx1, ry1 = roi["left"], roi["top"]
         rx2, ry2 = w - roi["right"], h - roi["bottom"]
         bx1, by1 = box["left"], box["top"]
@@ -811,8 +810,7 @@ class ControlGUI:
               f'{bx2-bx1}x{by2-by1}')
         print(f'# Red Zone  : ({rdx1},{rdy1})-({rdx2},{rdy2}) '
               f'{rdx2-rdx1}x{rdy2-rdy1}')
-        print(f'# Goal      : ({gx-gw//2},{gy-gh//2})-'
-              f'({gx+gw//2},{gy+gh//2}) {gw}x{gh}')
+        print(f'# Goal      : x={gx} y={gy-gl//2}..{gy+gl//2} len={gl}')
         print(f'# Home      : ({hx},{hy})')
         print("=" * 65 + "\n")
 
@@ -861,7 +859,7 @@ class ControlGUI:
             roi, rad = s.get_table_roi()
             box = s.get_box_margins()
             red = s.get_red_margins()
-            gx, gy, gw, gh = s.get_goal()
+            gx, gy, gl = s.get_goal()
             hx, hy = s.get_home()
 
             rx1, ry1 = roi["left"], roi["top"]
@@ -885,8 +883,8 @@ class ControlGUI:
                      f"{rdx2-rdx1}x{rdy2-rdy1}")
 
             self.goal_ro.config(
-                text=f"Goal: ({gx-gw//2},{gy-gh//2})-"
-                     f"({gx+gw//2},{gy+gh//2}) {gw}x{gh}")
+                text=f"Goal: x={gx} y={gy-gl//2}..{gy+gl//2} "
+                     f"len={gl}")
             self.home_ro.config(text=f"Home: ({hx},{hy})")
 
             self.root.after(GUI_UPDATE_MS, tick)
@@ -1020,7 +1018,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
         red_margins = state.get_red_margins()
         puck_hsv_low, puck_hsv_high = state.get_puck_hsv()
         mallet_hsv_low, mallet_hsv_high = state.get_mallet_hsv()
-        goal_x, goal_y, goal_w, goal_h = state.get_goal()
+        goal_x, goal_y, goal_len = state.get_goal()
         home_x, home_y = state.get_home()
         game_on = state.is_game_enabled()
 
@@ -1182,22 +1180,22 @@ def _inner_loop(state, stop_event, ctrl, cap,
                 # Puck visible – try to intercept
                 result = predict_intercept(
                     px, py, pvx, pvy,
-                    goal_y, goal_x, goal_w,
+                    goal_x, goal_y, goal_len,
                     table_left, table_right, table_top, table_bottom,
                     TRAJECTORY_DAMPING, TRAJECTORY_TIME)
 
                 if result is not None:
                     intercept_x, intercept_y = result
-                    target_x = max(goal_x - goal_w // 2,
-                                   min(goal_x + goal_w // 2, intercept_x))
-                    target_y = float(goal_y)
+                    target_x = float(goal_x)
+                    target_y = max(goal_y - goal_len // 2,
+                                   min(goal_y + goal_len // 2, intercept_y))
                     defense_state = "INTERCEPT"
                 else:
-                    # Puck not heading to goal – mirror puck X along
-                    # the goal line so the mallet tracks laterally
-                    target_x = max(goal_x - goal_w // 2,
-                                   min(goal_x + goal_w // 2, float(px)))
-                    target_y = float(goal_y)
+                    # Puck not heading to goal – mirror puck Y along
+                    # the vertical goal line so mallet tracks vertically
+                    target_x = float(goal_x)
+                    target_y = max(goal_y - goal_len // 2,
+                                   min(goal_y + goal_len // 2, float(py)))
                     defense_state = "TRACKING"
 
                 diff_x = target_x - mx
@@ -1283,12 +1281,10 @@ def _inner_loop(state, stop_event, ctrl, cap,
                               (bx[2], rz[3]), (0, 0, 200), -1)
                 cv2.addWeighted(ov, 0.3, vis, 0.7, 0, vis)
 
-        # Goal (yellow rectangle)
-        gx1 = goal_x - goal_w // 2
-        gy1 = goal_y - goal_h // 2
-        gx2 = goal_x + goal_w // 2
-        gy2 = goal_y + goal_h // 2
-        cv2.rectangle(vis, (gx1, gy1), (gx2, gy2), (0, 255, 255), 2)
+        # Goal (yellow vertical line)
+        gy1 = goal_y - goal_len // 2
+        gy2 = goal_y + goal_len // 2
+        cv2.line(vis, (goal_x, gy1), (goal_x, gy2), (0, 255, 255), 3)
 
         # Home (green crosshair)
         cv2.drawMarker(vis, (home_x, home_y), (0, 255, 0),
