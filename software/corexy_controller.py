@@ -129,7 +129,13 @@ class CoreXYController:
 
     def _enforce_bounds(self, mx, my, mr, vx, vy):
         """Block velocity components that push further into the red zone.
-        Movement AWAY from the zone is always allowed (escape)."""
+        Movement AWAY from the zone is always allowed (escape).
+
+        Boundaries are in camera-pixel space.  The robot is mounted 90°
+        off, so command velocity maps to camera movement as:
+            camera_dx = -vy      camera_dy = vx
+        We must block the correct command component for each camera wall.
+        """
         bx0, by0, bx1, by1 = self.mallet_box
         rm = self.red_zone_margins
         in_red = False
@@ -140,29 +146,29 @@ class CoreXYController:
         edge_t = my - mr
         edge_b = my + mr
 
-        # Left red zone – block leftward
+        # Camera LEFT wall – camera moves left when vy > 0
         if edge_l <= bx0 + rm["left"]:
             in_red = True
-            if vx < 0:
-                vx = 0
+            if vy > 0:
+                vy = 0
 
-        # Right red zone – block rightward
+        # Camera RIGHT wall – camera moves right when vy < 0
         if edge_r >= bx1 - rm["right"]:
-            in_red = True
-            if vx > 0:
-                vx = 0
-
-        # Top red zone – block upward
-        if edge_t <= by0 + rm["top"]:
             in_red = True
             if vy < 0:
                 vy = 0
 
-        # Bottom red zone – block downward
+        # Camera TOP wall – camera moves up when vx < 0
+        if edge_t <= by0 + rm["top"]:
+            in_red = True
+            if vx < 0:
+                vx = 0
+
+        # Camera BOTTOM wall – camera moves down when vx > 0
         if edge_b >= by1 - rm["bottom"]:
             in_red = True
-            if vy > 0:
-                vy = 0
+            if vx > 0:
+                vx = 0
 
         return vx, vy, in_red
 
