@@ -33,7 +33,7 @@ GEAR_RADIUS_IN = 1.5
 STEPS_PER_REV = 360.0 / STEP_ANGLE_DEG            # 180
 GEAR_CIRC_IN = 2.0 * math.pi * GEAR_RADIUS_IN     # ~9.42"
 DIST_PER_STEP_IN = GEAR_CIRC_IN / STEPS_PER_REV   # ~0.0524"
-MAX_MOTOR_PCT = 65                                 # hard cap per motor
+MAX_MOTOR_PCT = 75                                 # hard cap per motor
 
 
 class CoreXYController:

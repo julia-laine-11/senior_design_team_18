@@ -204,13 +204,15 @@ def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02):
 
 def predict_intercept(px, py, pvx, pvy, line_x, goal_y, goal_len,
                       table_left, table_right, table_top, table_bottom,
-                      damping=0.95, max_t=2.0, dt=0.02, max_bounces=2):
+                      max_t=2.0, dt=0.02, max_bounces=1):
     """Predict where the puck crosses a vertical line (x = line_x).
+
+    Extends the puck's current direction with at most *max_bounces*
+    wall reflections (default 1).  No damping or speed thresholds –
+    purely geometric.
 
     Only considers crossings whose Y falls within
     [goal_y - goal_len/2, goal_y + goal_len/2].
-
-    Wall bounces are capped at *max_bounces* (default 2).
 
     Returns (line_x, intercept_y) or None.
     """
@@ -239,25 +241,22 @@ def predict_intercept(px, py, pvx, pvy, line_x, goal_y, goal_len,
             if goal_top <= cross_y <= goal_bot:
                 return (float(line_x), cross_y)
 
-        # --- Top / bottom wall bounces ---
+        # --- Wall bounces (no damping – pure reflection) ---
         if y <= table_top:
-            y, vy = table_top, abs(vy) * damping
+            y, vy = table_top, abs(vy)
             bounces += 1
         elif y >= table_bottom:
-            y, vy = table_bottom, -abs(vy) * damping
+            y, vy = table_bottom, -abs(vy)
             bounces += 1
 
-        # --- Left / right wall bounces ---
         if x <= table_left:
-            x, vx = table_left, abs(vx) * damping
+            x, vx = table_left, abs(vx)
             bounces += 1
         elif x >= table_right:
-            x, vx = table_right, -abs(vx) * damping
+            x, vx = table_right, -abs(vx)
             bounces += 1
 
         if bounces > max_bounces:
-            break
-        if vx * vx + vy * vy < 25:
             break
 
     return None
@@ -1185,16 +1184,14 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     defense_state = "HOME"
 
             else:
-                # Puck visible – check if it will reach the goal (≤2 bounces)
+                # Puck visible – check if it will reach the goal (≤1 bounce)
                 goal_result = predict_intercept(
                     px, py, pvx, pvy,
                     goal_x, goal_y, goal_len,
-                    table_left, table_right, table_top, table_bottom,
-                    TRAJECTORY_DAMPING, TRAJECTORY_TIME, max_bounces=2)
+                    table_left, table_right, table_top, table_bottom)
 
                 if goal_result is not None:
                     # Puck WILL cross the goal line.
-                    # Store goal crossing for visualisation.
                     intercept_x, intercept_y = goal_result
 
                     # Find where the path crosses the red-zone edge
@@ -1202,30 +1199,26 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     rz_result = predict_intercept(
                         px, py, pvx, pvy,
                         rz_left, goal_y, goal_len,
-                        table_left, table_right, table_top, table_bottom,
-                        TRAJECTORY_DAMPING, TRAJECTORY_TIME, max_bounces=2)
+                        table_left, table_right, table_top, table_bottom)
 
                     target_x = float(rz_left)
                     if rz_result is not None:
                         target_y = rz_result[1]
                     else:
-                        # Fallback: use goal intercept Y
                         target_y = intercept_y
                     target_y = max(goal_y - goal_len // 2,
                                    min(goal_y + goal_len // 2, target_y))
                     defense_state = "INTERCEPT"
-                else:
-                    # Puck won't reach goal – sit centred on the goal
-                    target_x = float(rz_left)
-                    target_y = float(goal_y)
-                    defense_state = "CENTERED"
 
-                diff_x = target_x - mx
-                diff_y = target_y - my
-                dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
-                if dist > HOME_THRESHOLD / 2:
-                    vx = float(diff_y)
-                    vy = float(-diff_x)
+                    diff_x = target_x - mx
+                    diff_y = target_y - my
+                    dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
+                    if dist > HOME_THRESHOLD / 2:
+                        vx = float(diff_y)
+                        vy = float(-diff_x)
+                else:
+                    # No collision predicted – sit still
+                    defense_state = "WAITING"
 
         else:
             # ---- Manual control ----
