@@ -440,19 +440,35 @@ def drive_loop(state, stop_event):
     except Exception as e:
         print(f"  Motor init failed ({e}) – vision only mode.")
 
-    # ---- Loop state ----
-    dx, dy = 0, 0           # discrete direction from keys
-    vx, vy = 0.0, 0.0      # velocity sent to controller
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+
+    print("  Drive loop running.\n")
+
+    try:
+      _drive_loop_inner(state, stop_event, ctrl, cap, has_camera, w, h, kernel)
+    except Exception as e:
+        print(f"\n  !! Drive loop crashed: {e}")
+    finally:
+        # ALWAYS stop motors on exit, no matter what
+        print("\n  Stopping motors...")
+        if ctrl:
+            ctrl.close()
+        if isinstance(cap, cv2.VideoCapture):
+            cap.release()
+        cv2.destroyAllWindows()
+
+
+def _drive_loop_inner(state, stop_event, ctrl, cap, has_camera, w, h, kernel):
+    """Inner loop, separated so the outer try/finally always stops motors."""
+    dx, dy = 0, 0
+    vx, vy = 0.0, 0.0
     last_key_time = 0.0
     homing = False
     mallet_x, mallet_y, mallet_r = None, None, 0
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 
     fps_alpha = 0.1
     fps = 0.0
     last_t = time.perf_counter()
-
-    print("  Drive loop running.\n")
 
     while not stop_event.is_set():
         t0 = time.perf_counter()
@@ -475,9 +491,13 @@ def drive_loop(state, stop_event):
             try:
                 ret, frame = cap.read()
             except Exception:
+                if ctrl:
+                    ctrl.stop()
                 has_camera = False
                 continue
             if not ret or frame is None:
+                if ctrl:
+                    ctrl.stop()
                 has_camera = False
                 continue
             vis = frame.copy()
@@ -687,12 +707,6 @@ def drive_loop(state, stop_event):
             except cv2.error:
                 pass
 
-    # ---- Cleanup ----
-    print("\n  Stopping motors...")
-    if ctrl:
-        ctrl.close()
-    cap.release()
-    cv2.destroyAllWindows()
 
 # ===================== MAIN ==============================
 
