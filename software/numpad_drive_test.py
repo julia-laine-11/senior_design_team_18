@@ -414,16 +414,19 @@ def drive_loop(state, stop_event):
     # ---- Camera ----
     has_camera = False
     cap = cv2.VideoCapture(CAM_INDEX)
-    if cap.isOpened():
+    if isinstance(cap, cv2.VideoCapture) and cap.isOpened():
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
-        ret, frame = cap.read()
-        if ret:
-            h, w = frame.shape[:2]
-            has_camera = True
-            print(f"  Camera: {w}x{h}")
-        else:
-            print("  WARNING: Camera read failed.")
+        try:
+            ret, frame = cap.read()
+            if ret and frame is not None:
+                h, w = frame.shape[:2]
+                has_camera = True
+                print(f"  Camera: {w}x{h}")
+            else:
+                print("  WARNING: Camera read failed.")
+        except Exception as e:
+            print(f"  WARNING: Camera error ({e}).")
     else:
         print("  WARNING: No camera – no boundary enforcement.")
 
@@ -469,9 +472,14 @@ def drive_loop(state, stop_event):
 
         # ---- Camera / detection ----
         if has_camera:
-            ret, frame = cap.read()
-            if not ret:
-                break
+            try:
+                ret, frame = cap.read()
+            except Exception:
+                has_camera = False
+                continue
+            if not ret or frame is None:
+                has_camera = False
+                continue
             vis = frame.copy()
 
             hsv_img = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
