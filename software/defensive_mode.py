@@ -202,57 +202,61 @@ def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02):
     return points
 
 
-def predict_intercept(px, py, pvx, pvy, goal_x, goal_y, goal_len,
+def predict_intercept(px, py, pvx, pvy, line_x, goal_y, goal_len,
                       table_left, table_right, table_top, table_bottom,
-                      damping=0.95, max_t=2.0, dt=0.02):
-    """Predict where the puck crosses the vertical goal line (x = goal_x).
+                      damping=0.95, max_t=2.0, dt=0.02, max_bounces=2):
+    """Predict where the puck crosses a vertical line (x = line_x).
 
-    The goal is a vertical segment from goal_y - goal_len/2 to
-    goal_y + goal_len/2.  Puck attacks from right to left.
+    Only considers crossings whose Y falls within
+    [goal_y - goal_len/2, goal_y + goal_len/2].
 
-    Simulates trajectory with wall bounces.  Top/bottom walls always
-    reflect.  The left wall reflects only when the crossing Y is OUTSIDE
-    the goal opening (hit wall beside goal).
+    Wall bounces are capped at *max_bounces* (default 2).
 
-    Returns (goal_x, intercept_y) or None.
+    Returns (line_x, intercept_y) or None.
     """
     x, y = float(px), float(py)
     vx, vy = float(pvx), float(pvy)
     goal_top = goal_y - goal_len / 2.0
     goal_bot = goal_y + goal_len / 2.0
+    bounces = 0
 
     for _ in range(int(max_t / dt)):
         prev_x, prev_y = x, y
         x += vx * dt
         y += vy * dt
 
-        # --- Check goal-line crossing BEFORE wall bounces ---
-        crossed_left = (prev_x > goal_x and x <= goal_x)
-        crossed_right = (prev_x < goal_x and x >= goal_x)
+        # --- Check line crossing BEFORE wall bounces ---
+        crossed_left = (prev_x > line_x and x <= line_x)
+        crossed_right = (prev_x < line_x and x >= line_x)
 
         if crossed_left or crossed_right:
-            # Linear interpolation for the Y at goal_x
             dx = x - prev_x
             if abs(dx) > 0.001:
-                t_frac = (goal_x - prev_x) / dx
+                t_frac = (line_x - prev_x) / dx
                 cross_y = prev_y + vy * dt * t_frac
             else:
                 cross_y = y
             if goal_top <= cross_y <= goal_bot:
-                return (float(goal_x), cross_y)
+                return (float(line_x), cross_y)
 
         # --- Top / bottom wall bounces ---
         if y <= table_top:
             y, vy = table_top, abs(vy) * damping
+            bounces += 1
         elif y >= table_bottom:
             y, vy = table_bottom, -abs(vy) * damping
+            bounces += 1
 
         # --- Left / right wall bounces ---
         if x <= table_left:
             x, vx = table_left, abs(vx) * damping
+            bounces += 1
         elif x >= table_right:
             x, vx = table_right, -abs(vx) * damping
+            bounces += 1
 
+        if bounces > max_bounces:
+            break
         if vx * vx + vy * vy < 25:
             break
 
@@ -1164,6 +1168,10 @@ def _inner_loop(state, stop_event, ctrl, cap,
 
         elif game_on:
             # ---- Autonomous defense ----
+            # Red zone left edge – the closest X the mallet can safely reach.
+            # The CoreXY boundary enforcement stops the mallet edge here.
+            rz_left = box_margins['left'] + red_margins['left']
+
             if not puck_det or (px < 0 and py < 0):
                 # Puck lost → go home
                 defense_state = "HOMING"
@@ -1177,26 +1185,40 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     defense_state = "HOME"
 
             else:
-                # Puck visible – try to intercept
-                result = predict_intercept(
+                # Puck visible – check if it will reach the goal (≤2 bounces)
+                goal_result = predict_intercept(
                     px, py, pvx, pvy,
                     goal_x, goal_y, goal_len,
                     table_left, table_right, table_top, table_bottom,
-                    TRAJECTORY_DAMPING, TRAJECTORY_TIME)
+                    TRAJECTORY_DAMPING, TRAJECTORY_TIME, max_bounces=2)
 
-                if result is not None:
-                    intercept_x, intercept_y = result
-                    target_x = float(goal_x)
+                if goal_result is not None:
+                    # Puck WILL cross the goal line.
+                    # Store goal crossing for visualisation.
+                    intercept_x, intercept_y = goal_result
+
+                    # Find where the path crosses the red-zone edge
+                    # (the safe X where the mallet can actually wait).
+                    rz_result = predict_intercept(
+                        px, py, pvx, pvy,
+                        rz_left, goal_y, goal_len,
+                        table_left, table_right, table_top, table_bottom,
+                        TRAJECTORY_DAMPING, TRAJECTORY_TIME, max_bounces=2)
+
+                    target_x = float(rz_left)
+                    if rz_result is not None:
+                        target_y = rz_result[1]
+                    else:
+                        # Fallback: use goal intercept Y
+                        target_y = intercept_y
                     target_y = max(goal_y - goal_len // 2,
-                                   min(goal_y + goal_len // 2, intercept_y))
+                                   min(goal_y + goal_len // 2, target_y))
                     defense_state = "INTERCEPT"
                 else:
-                    # Puck not heading to goal – mirror puck Y along
-                    # the vertical goal line so mallet tracks vertically
-                    target_x = float(goal_x)
-                    target_y = max(goal_y - goal_len // 2,
-                                   min(goal_y + goal_len // 2, float(py)))
-                    defense_state = "TRACKING"
+                    # Puck won't reach goal – sit centred on the goal
+                    target_x = float(rz_left)
+                    target_y = float(goal_y)
+                    defense_state = "CENTERED"
 
                 diff_x = target_x - mx
                 diff_y = target_y - my
