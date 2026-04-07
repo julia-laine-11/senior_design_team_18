@@ -17,7 +17,13 @@
 #
 # Dependencies:
 #   pip install opencv-python numpy pyserial
-
+# Computed pixel rectangles:
+# Table ROI : (21,105)-(568,422) 547x317 R=30
+# Mallet Box: (24,108)-(340,414) 316x306
+# Red Zone  : (46,156)-(272,373) 226x217
+# Goal      : x=50 y=140..340 len=200
+# Home      : (137,240)
+# ==============================
 import numpy as np
 import time
 import cv2
@@ -54,7 +60,7 @@ TABLE_ROI = {"top": 50, "bottom": 50, "left": 50, "right": 50}
 TABLE_CORNER_RADIUS = 30   # semi-large rounded corners
 
 # Motor UART
-MOTOR_PORT = 'COM4'
+MOTOR_PORT = '/dev/ttyUSB0'
 MOTOR_BAUD = 115200
 MOTOR_ENABLED = True
 
