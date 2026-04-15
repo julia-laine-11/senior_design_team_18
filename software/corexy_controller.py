@@ -133,7 +133,7 @@ class CoreXYController:
 
         Boundaries are in camera-pixel space. This controller receives the
         same command vector used by manual controls:
-            vx > 0 moves up in camera pixels
+            vx > 0 moves down in camera pixels
             vy > 0 moves right in camera pixels
         Convert to camera delta first, block unsafe camera motion, then
         convert back to command axes.
@@ -149,7 +149,7 @@ class CoreXYController:
         edge_b = my + mr
 
         camera_dx = vy
-        camera_dy = -vx
+        camera_dy = vx
 
         # Camera LEFT wall – block more leftward motion.
         if edge_l <= bx0 + rm["left"]:
@@ -175,7 +175,7 @@ class CoreXYController:
             if camera_dy > 0:
                 camera_dy = 0
 
-        return -camera_dy, camera_dx, in_red
+        return camera_dy, camera_dx, in_red
 
     # ------------------------------------------------------------------
     # UART helpers  (same protocol as defense_controller.py)
