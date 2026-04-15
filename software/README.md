@@ -325,14 +325,14 @@ robot right   = pixel Y+
 robot left    = pixel Y-
 ```
 
-Because of that, auto-drive uses the target pixel error directly:
+Because the current motor wiring makes positive command Y move upward in the camera image, auto-drive sends inverted Y command while keeping X direct:
 
 ```text
 diff_x = target_x - mallet_x
 diff_y = target_y - mallet_y
 
 vx = diff_x
-vy = diff_y
+vy = -diff_y
 ```
 
 `CoreXYController.drive()` then converts the command vector into motor A/B commands:
