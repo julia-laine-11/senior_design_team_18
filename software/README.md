@@ -325,14 +325,21 @@ robot right   = pixel Y+
 robot left    = pixel Y-
 ```
 
-Because the current motor wiring makes positive command Y move upward in the camera image, manual controls invert the Y command. Auto-drive uses the same mapping:
+Because the current motor wiring rotates the command axes relative to camera pixels, command-to-camera mapping is:
+
+```text
+camera_dx = vy
+camera_dy = -vx
+```
+
+Auto-drive uses the inverse of that mapping:
 
 ```text
 diff_x = target_x - mallet_x
 diff_y = target_y - mallet_y
 
-vx = diff_x
-vy = -diff_y
+vx = -diff_y
+vy = diff_x
 ```
 
 `CoreXYController.drive()` then converts the command vector into motor A/B commands:
