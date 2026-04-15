@@ -133,7 +133,7 @@ class CoreXYController:
 
         Boundaries are in camera-pixel space. Command velocity maps to
         camera movement as:
-            camera_dx = vx      camera_dy = -vy
+            camera_dx = vx      camera_dy = vy
         We block only the component that would push farther into a wall.
         """
         bx0, by0, bx1, by1 = self.mallet_box
@@ -161,13 +161,13 @@ class CoreXYController:
         # Camera TOP wall – block more upward motion.
         if edge_t <= by0 + rm["top"]:
             in_red = True
-            if vy > 0:
+            if vy < 0:
                 vy = 0
 
         # Camera BOTTOM wall – block more downward motion.
         if edge_b >= by1 - rm["bottom"]:
             in_red = True
-            if vy < 0:
+            if vy > 0:
                 vy = 0
 
         return vx, vy, in_red
