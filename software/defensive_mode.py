@@ -1328,7 +1328,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
             diff_y = target_y - my
             dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
             if dist > threshold:
-                return float(-diff_x), float(-diff_y)
+                return float(diff_x), float(-diff_y)
             return 0.0, 0.0
 
         # SAFETY: mallet not detected → STOP
