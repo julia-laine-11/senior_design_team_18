@@ -102,25 +102,25 @@ CONFIG_VERSION = 1
 # ==================== KEY MAPPINGS (manual mode) ====================
 
 _NUM_DIRS = {
-    ord('7'): (1, -1), ord('8'): (1,  0), ord('9'): (1,  1),
+    ord('7'): (-1, -1), ord('8'): (-1,  0), ord('9'): (-1,  1),
     ord('4'): (0, -1), ord('5'): (0,  0), ord('6'): (0,  1),
-    ord('1'): (-1, -1), ord('2'): (-1, 0), ord('3'): (-1, 1),
+    ord('1'): (1, -1), ord('2'): (1, 0), ord('3'): (1, 1),
 }
 _WASD_DIRS = {
-    ord('w'): (1,  0), ord('a'): (0, -1),
-    ord('s'): (-1, 0), ord('d'): (0,  1),
+    ord('w'): (-1,  0), ord('a'): (0, -1),
+    ord('s'): (1, 0), ord('d'): (0,  1),
     ord(' '): (0,  0),
 }
 _ARROW_DIRS = {
-    2490368: (1, 0), 2621440: (-1, 0),
+    2490368: (-1, 0), 2621440: (1, 0),
     2424832: (0, -1), 2555904: (0, 1),
 }
 KEY_MAP = {**_NUM_DIRS, **_WASD_DIRS, **_ARROW_DIRS}
 
 DIR_NAMES = {
-    (1, -1): "UP-LEFT",    (1, 0): "UP",       (1, 1): "UP-RIGHT",
+    (-1, -1): "UP-LEFT",   (-1, 0): "UP",      (-1, 1): "UP-RIGHT",
     (0, -1): "LEFT",       (0, 0): "STOP",     (0, 1): "RIGHT",
-    (-1, -1): "DOWN-LEFT", (-1, 0): "DOWN",    (-1, 1): "DOWN-RIGHT",
+    (1, -1): "DOWN-LEFT",  (1, 0): "DOWN",     (1, 1): "DOWN-RIGHT",
 }
 
 
@@ -1332,7 +1332,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
             diff_y = target_y - my
             dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
             if dist > threshold:
-                return float(-diff_y), float(diff_x)
+                return float(diff_y), float(diff_x)
             return 0.0, 0.0
 
         # SAFETY: mallet not detected → STOP
