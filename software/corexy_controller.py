@@ -131,10 +131,12 @@ class CoreXYController:
         """Block velocity components that push further into the red zone.
         Movement AWAY from the zone is always allowed (escape).
 
-        Boundaries are in camera-pixel space. Command velocity maps to
-        camera movement as:
-            camera_dx = vx      camera_dy = -vy
-        We block only the component that would push farther into a wall.
+        Boundaries are in camera-pixel space. This controller receives the
+        same command vector used by manual controls:
+            vx > 0 moves right in camera pixels
+            vy > 0 moves up in camera pixels
+        Convert to camera delta first, block unsafe camera motion, then
+        convert back to command axes.
         """
         bx0, by0, bx1, by1 = self.mallet_box
         rm = self.red_zone_margins
@@ -146,31 +148,34 @@ class CoreXYController:
         edge_t = my - mr
         edge_b = my + mr
 
+        camera_dx = vx
+        camera_dy = -vy
+
         # Camera LEFT wall – block more leftward motion.
         if edge_l <= bx0 + rm["left"]:
             in_red = True
-            if vx < 0:
-                vx = 0
+            if camera_dx < 0:
+                camera_dx = 0
 
         # Camera RIGHT wall – block more rightward motion.
         if edge_r >= bx1 - rm["right"]:
             in_red = True
-            if vx > 0:
-                vx = 0
+            if camera_dx > 0:
+                camera_dx = 0
 
         # Camera TOP wall – block more upward motion.
         if edge_t <= by0 + rm["top"]:
             in_red = True
-            if vy > 0:
-                vy = 0
+            if camera_dy < 0:
+                camera_dy = 0
 
         # Camera BOTTOM wall – block more downward motion.
         if edge_b >= by1 - rm["bottom"]:
             in_red = True
-            if vy < 0:
-                vy = 0
+            if camera_dy > 0:
+                camera_dy = 0
 
-        return vx, vy, in_red
+        return camera_dx, -camera_dy, in_red
 
     # ------------------------------------------------------------------
     # UART helpers  (same protocol as defense_controller.py)
