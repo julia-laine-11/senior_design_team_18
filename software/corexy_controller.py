@@ -131,10 +131,10 @@ class CoreXYController:
         """Block velocity components that push further into the red zone.
         Movement AWAY from the zone is always allowed (escape).
 
-        Boundaries are in camera-pixel space.  The robot is mounted 90°
-        off, so command velocity maps to camera movement as:
-            camera_dx = -vy      camera_dy = vx
-        We must block the correct command component for each camera wall.
+        Boundaries are in camera-pixel space. Command velocity maps to
+        camera movement as:
+            camera_dx = vx      camera_dy = vy
+        We block only the component that would push farther into a wall.
         """
         bx0, by0, bx1, by1 = self.mallet_box
         rm = self.red_zone_margins
@@ -146,29 +146,29 @@ class CoreXYController:
         edge_t = my - mr
         edge_b = my + mr
 
-        # Camera LEFT wall – camera moves left when vy > 0
+        # Camera LEFT wall – block more leftward motion.
         if edge_l <= bx0 + rm["left"]:
-            in_red = True
-            if vy > 0:
-                vy = 0
-
-        # Camera RIGHT wall – camera moves right when vy < 0
-        if edge_r >= bx1 - rm["right"]:
-            in_red = True
-            if vy < 0:
-                vy = 0
-
-        # Camera TOP wall – camera moves up when vx < 0
-        if edge_t <= by0 + rm["top"]:
             in_red = True
             if vx < 0:
                 vx = 0
 
-        # Camera BOTTOM wall – camera moves down when vx > 0
-        if edge_b >= by1 - rm["bottom"]:
+        # Camera RIGHT wall – block more rightward motion.
+        if edge_r >= bx1 - rm["right"]:
             in_red = True
             if vx > 0:
                 vx = 0
+
+        # Camera TOP wall – block more upward motion.
+        if edge_t <= by0 + rm["top"]:
+            in_red = True
+            if vy < 0:
+                vy = 0
+
+        # Camera BOTTOM wall – block more downward motion.
+        if edge_b >= by1 - rm["bottom"]:
+            in_red = True
+            if vy > 0:
+                vy = 0
 
         return vx, vy, in_red
 
