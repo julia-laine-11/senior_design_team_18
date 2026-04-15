@@ -1,77 +1,252 @@
-#include "stm32f0xx.h"
-#include <stdint.h>
+// #include "stm32f0xx.h"
+// #include <stdint.h>
 
-// Configures the PLL to multiply the 8MHz HSI to 48MHz
-void init_clock(void) {
-    // 1. Set Flash latency to 1 wait state and enable prefetch buffer (Required for >24 MHz)
-    FLASH->ACR |= FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY;
+// //===========================================================================
+// // DEFINITIONS
+// //===========================================================================
+
+// // UI States
+// #define UI_STATE_SPLASH     0
+// #define UI_STATE_MENU       1
+// #define UI_STATE_PLAY       2
+
+// // Game Modes
+// #define MODE_BOT            0
+// #define MODE_PLAYER         1
+
+// //===========================================================================
+// // TIMING FUNCTIONS
+// //===========================================================================
+
+// void delay_ms(uint32_t ms) {
+//     for (uint32_t i = 0; i < ms; i++) {
+//         SysTick->LOAD = 48000 - 1;                  
+//         SysTick->VAL = 0;
+//         SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
+//         while (!(SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk));
+//         SysTick->CTRL = 0; 
+//     }
+// }
+
+// void small_delay(void) {
+//     for(volatile int i=0; i<15; i++);
+// }
+
+// //===========================================================================
+// // ADC (Joystick VRY -> PC0)
+// //===========================================================================
+
+// void init_adc(void) {
+//     RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
     
-    // 2. Configure PLL: Source = HSI/2 (4 MHz), Multiplier = 12 -> 48 MHz
-    RCC->CFGR &= ~(RCC_CFGR_PLLMUL | RCC_CFGR_PLLSRC);
-    RCC->CFGR |= RCC_CFGR_PLLMUL12;
+//     // PC0 (IN10) Analog Mode
+//     GPIOC->MODER |= GPIO_MODER_MODER0_0 | GPIO_MODER_MODER0_1; 
     
-    // 3. Enable PLL and wait for it to lock
-    RCC->CR |= RCC_CR_PLLON;
-    while (!(RCC->CR & RCC_CR_PLLRDY)); 
+//     // Enable HSI14 Clock for ADC
+//     RCC->CR2 |= RCC_CR2_HSI14ON;
+//     while ((RCC->CR2 & RCC_CR2_HSI14RDY) == 0);
     
-    // 4. Select PLL as the system clock source and wait for switch
-    RCC->CFGR |= RCC_CFGR_SW_PLL;
-    while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL); 
-}
+//     // Enable ADC
+//     ADC1->CR |= ADC_CR_ADEN;
+//     while ((ADC1->ISR & ADC_ISR_ADRDY) == 0);
+// }
 
-// Simple blocking delay for probing test
-// Global variable to count milliseconds
-volatile uint32_t ms_ticks = 0;
+// uint16_t read_adc(uint32_t channel_mask) {
+//     // Stop any ongoing conversion before changing channels
+//     if (ADC1->CR & ADC_CR_ADSTART) {
+//         ADC1->CR |= ADC_CR_ADSTP;
+//         while (ADC1->CR & ADC_CR_ADSTP);
+//     }
+    
+//     // Set the requested channel
+//     ADC1->CHSELR = channel_mask;
+    
+//     // Start conversion
+//     ADC1->CR |= ADC_CR_ADSTART;
+//     while ((ADC1->ISR & ADC_ISR_EOC) == 0);
+//     return ADC1->DR;
+// }
 
-// This is a hardware interrupt handler built into the ARM Cortex core.
-// It automatically fires exactly once per millisecond.
-void SysTick_Handler(void) {
-    ms_ticks++;
-}
+// //===========================================================================
+// // CONTROLS (PC2 Button - Active Low for HW-504 SW pin)
+// //===========================================================================
 
-// Configures the hardware timer based on our 48MHz clock
-void init_systick(void) {
-    // 48,000,000 Hz / 1000 = 48,000 ticks per millisecond
-    SysTick_Config(48000000 / 1000);
-}
+// void init_controls(void) {
+//     // PC2 Input (Start/Select)
+//     GPIOC->MODER &= ~(GPIO_MODER_MODER2);
+    
+//     // Configure with an internal PULL-UP resistor (holds line at 3.3V)
+//     GPIOC->PUPDR &= ~(GPIO_PUPDR_PUPDR2);
+//     GPIOC->PUPDR |= (GPIO_PUPDR_PUPDR2_0); 
+// }
 
-// A hardware-accurate delay function
-void delay_ms(uint32_t ms) {
-    uint32_t start_time = ms_ticks;
-    while ((ms_ticks - start_time) < ms) {
-        // Wait here until the hardware timer increments enough times
-        __asm("wfi"); // Optional: "Wait For Interrupt" saves power while looping
-    }
-}
+// //===========================================================================
+// // OLED PINS & SPI Bit-Banging (SEH1602A)
+// //===========================================================================
 
-int main(void) {
-    // Boot up to 48 MHz immediately
-    init_clock();
+// void init_oled_pins(void) {
+//     // SCL = PA15 
+//     GPIOA->MODER &= ~(GPIO_MODER_MODER15);
+//     GPIOA->MODER |= (GPIO_MODER_MODER15_0);
 
-    // Enable Peripheral Clock for GPIOB
-    RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+//     // SDI = PC10 | nCS = PC11 
+//     GPIOC->MODER &= ~(GPIO_MODER_MODER10 | GPIO_MODER_MODER11);
+//     GPIOC->MODER |= (GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0);
 
-    // Configure PB3, PB5, PB7, PB9 as General Purpose Output (Mode 01)
-    // 1. Clear the MODER bits for these specific pins
-    GPIOB->MODER &= ~((3 << (3 * 2)) | 
-                      (3 << (5 * 2)) | 
-                      (3 << (7 * 2)) | 
-                      (3 << (9 * 2)));
-                      
-    // 2. Set the MODER bits to 01 (Output Mode)
-    GPIOB->MODER |=  ((1 << (3 * 2)) | 
-                      (1 << (5 * 2)) | 
-                      (1 << (7 * 2)) | 
-                      (1 << (9 * 2)));
+//     // Initialize nCS High (Deselected), SCL Low
+//     GPIOC->BSRR = (1U << 11); // nCS = 1
+//     GPIOA->BRR = (1U << 15);  // SCL = 0
+// }
 
-    // Set pins HIGH initially using the Bit Set/Reset Register
-    GPIOB->BSRR = (1 << 3) | (1 << 5) | (1 << 7) | (1 << 9);
+// void spi_send_10bit(uint16_t data) {
+//     GPIOC->BRR = (1U << 11); // Pull nCS Low (Active)
+//     small_delay();
 
-    while (1) {
-        // Toggle the pins so you can easily verify activity with a multimeter
-        GPIOB->ODR ^= (1 << 3) | (1 << 5) | (1 << 7) | (1 << 9);
+//     for (int i = 9; i >= 0; i--) {
+//         if ((data >> i) & 1) GPIOC->BSRR = (1U << 10);
+//         else                 GPIOC->BRR = (1U << 10);
+//         small_delay();
         
-        // Wait ~500ms before toggling again
-        delay_ms(500);
-    }
-}
+//         GPIOA->BSRR = (1U << 15); // Clock High
+//         small_delay();
+//         GPIOA->BRR = (1U << 15);  // Clock Low
+//         small_delay();
+//     }
+
+//     GPIOC->BSRR = (1U << 11); // Push nCS High (Deselected)
+//     small_delay();
+// }
+
+// void spi_cmd(unsigned int data) { 
+//     spi_send_10bit(data & 0xFF); 
+//     delay_ms(1); // Give the slow OLED logic time to process
+// }
+
+// void spi_data(unsigned int data) { 
+//     spi_send_10bit(data | 0x200); 
+//     delay_ms(1); 
+// }
+
+// void spi1_init_oled(void) {
+//     // CRITICAL: Wait for OLED's internal logic to power up
+//     delay_ms(100); 
+
+//     spi_cmd(0x38); // Function set: 8-bit interface, 2 lines
+//     spi_cmd(0x08); // Display off
+//     spi_cmd(0x17); // 3V internal DC/DC Power ON (Crucial for SEH1602A)
+//     spi_cmd(0x01); // Clear display
+//     delay_ms(5);   // Clear command takes extra time
+//     spi_cmd(0x06); // Entry mode
+//     spi_cmd(0x02); // Cursor home
+//     spi_cmd(0x0C); // Display ON, Cursor OFF
+// }
+
+// void spi1_display1(const char *string) {
+//     spi_cmd(0x02); // Move cursor to home (Line 1)
+//     while(*string != '\0') {
+//         spi_data(*string);
+//         string++;
+//     }
+// }
+
+// void spi1_display2(const char *string) {
+//     spi_cmd(0xC0); // Move cursor to start of Line 2
+//     while(*string != '\0') {
+//         spi_data(*string);
+//         string++;
+//     }
+// }
+
+// //===========================================================================
+// // MAIN
+// //===========================================================================
+
+// int main(void) {
+//     // 1. Enable Clocks for Port A and C
+//     RCC->AHBENR |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOCEN;
+
+//     // 2. Initialize Hardware
+//     init_oled_pins();
+//     init_adc();
+//     init_controls();
+
+//     // 3. Initialize OLED
+//     spi1_init_oled();
+
+//     // 4. UI Variables
+//     uint8_t ui_state = UI_STATE_SPLASH;
+//     uint8_t selected_mode = MODE_BOT; 
+//     uint8_t oled_needs_update = 1;
+//     uint32_t pc2_debounce = 0;
+
+//     // 5. Main Loop
+//     while (1) {
+        
+//         // --- Input Handling ---
+//         if (pc2_debounce > 0) pc2_debounce--;
+
+//         // Read Y-Axis on PC0 (CH10)
+//         uint16_t joy_y = read_adc(ADC_CHSELR_CHSEL10);
+        
+//         // Joystick Menu Navigation (Y-Axis)
+//         if (ui_state == UI_STATE_MENU) {
+//             // SWAPPED LOGIC: < 1000 sets to PLAYER, > 3000 sets to BOT
+//             if (joy_y < 1000 && selected_mode != MODE_PLAYER) {
+//                 selected_mode = MODE_PLAYER;
+//                 oled_needs_update = 1;
+//             } else if (joy_y > 3000 && selected_mode != MODE_BOT) {
+//                 selected_mode = MODE_BOT;
+//                 oled_needs_update = 1;
+//             }
+//         }
+
+//         // Button Press (PC2 - Active Low)
+//         // NOTICE the "!" - Checks if the line drops to Ground when pressed
+//         if (!(GPIOC->IDR & (1 << 2)) && (pc2_debounce == 0)) {
+//             pc2_debounce = 100000; // Software debounce delay
+            
+//             if (ui_state == UI_STATE_SPLASH) {
+//                 ui_state = UI_STATE_MENU;
+//                 oled_needs_update = 1;
+//             } else if (ui_state == UI_STATE_MENU) {
+//                 ui_state = UI_STATE_PLAY;
+//                 oled_needs_update = 1;
+//             } else if (ui_state == UI_STATE_PLAY) {
+//                 ui_state = UI_STATE_SPLASH; 
+//                 selected_mode = MODE_BOT;
+//                 oled_needs_update = 1;
+//             }
+//         }
+
+//         // --- Screen Rendering ---
+//         if (oled_needs_update) {
+//             oled_needs_update = 0;
+            
+//             spi_cmd(0x01); 
+//             delay_ms(2); 
+
+//             if (ui_state == UI_STATE_SPLASH) {
+//                 spi1_display1("Push Button     ");
+//                 spi1_display2("to start...     ");
+//             } 
+//             else if (ui_state == UI_STATE_MENU) {
+//                 if (selected_mode == MODE_PLAYER) {
+//                     spi1_display1("> Human         ");
+//                     spi1_display2("  Bot           ");
+//                 } else {
+//                     spi1_display1("  Human         ");
+//                     spi1_display2("> Bot           ");
+//                 }
+//             } 
+//             else if (ui_state == UI_STATE_PLAY) {
+//                 if (selected_mode == MODE_PLAYER) {
+//                     spi1_display1("Playing:        ");
+//                     spi1_display2("Human Mode      ");
+//                 } else {
+//                     spi1_display1("Playing:        ");
+//                     spi1_display2("Bot Mode        ");
+//                 }
+//             }
+//         }
+//     }
+// }
