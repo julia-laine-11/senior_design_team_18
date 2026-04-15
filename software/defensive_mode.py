@@ -17,19 +17,15 @@
 #
 # Dependencies:
 #   pip install opencv-python numpy pyserial
-# Computed pixel rectangles:
-# Table ROI : (21,105)-(568,422) 547x317 R=30
-# Mallet Box: (24,108)-(340,414) 316x306
-# Red Zone  : (46,156)-(272,373) 226x217
-# Goal      : x=50 y=140..340 len=200
-# Home      : (137,240)
 # ==============================
 import numpy as np
 import time
 import cv2
+import json
 import tkinter as tk
 from tkinter import ttk
-from threading import Thread, Lock, Event
+from pathlib import Path
+from threading import Thread, RLock, Event
 
 from corexy_controller import CoreXYController, MAX_MOTOR_PCT
 
@@ -98,29 +94,83 @@ KEY_RELEASE_TIMEOUT = 0.20
 # GUI
 GUI_UPDATE_MS = 100
 
+# Runtime settings
+CONFIG_PATH = Path(__file__).with_name("defensive_mode_config.json")
+CONFIG_VERSION = 1
+
 # ==================== KEY MAPPINGS (manual mode) ====================
 
 _NUM_DIRS = {
-    ord('7'): (-1, -1), ord('8'): (0, -1), ord('9'): (1, -1),
+    ord('7'): (-1,  1), ord('8'): (0,  1), ord('9'): (1,  1),
     ord('4'): (-1,  0), ord('5'): (0,  0), ord('6'): (1,  0),
-    ord('1'): (-1,  1), ord('2'): (0,  1), ord('3'): (1,  1),
+    ord('1'): (-1, -1), ord('2'): (0, -1), ord('3'): (1, -1),
 }
 _WASD_DIRS = {
-    ord('w'): (0, -1), ord('a'): (-1, 0),
-    ord('s'): (0,  1), ord('d'): (1,  0),
+    ord('w'): (0,  1), ord('a'): (-1, 0),
+    ord('s'): (0, -1), ord('d'): (1,  0),
     ord(' '): (0,  0),
 }
 _ARROW_DIRS = {
-    2490368: (0, -1), 2621440: (0, 1),
+    2490368: (0, 1), 2621440: (0, -1),
     2424832: (-1, 0), 2555904: (1, 0),
 }
 KEY_MAP = {**_NUM_DIRS, **_WASD_DIRS, **_ARROW_DIRS}
 
 DIR_NAMES = {
-    (-1, -1): "UP-LEFT",   (0, -1): "UP",      (1, -1): "UP-RIGHT",
+    (-1, -1): "DOWN-LEFT", (0, -1): "DOWN",    (1, -1): "DOWN-RIGHT",
     (-1,  0): "LEFT",      (0,  0): "STOP",    (1,  0): "RIGHT",
-    (-1,  1): "DOWN-LEFT", (0,  1): "DOWN",    (1,  1): "DOWN-RIGHT",
+    (-1,  1): "UP-LEFT",   (0,  1): "UP",      (1,  1): "UP-RIGHT",
 }
+
+
+# ==================== SETTINGS PERSISTENCE ====================
+
+def _as_int(value, default, lo=None, hi=None):
+    try:
+        value = int(float(value))
+    except (TypeError, ValueError):
+        value = int(default)
+    if lo is not None:
+        value = max(lo, value)
+    if hi is not None:
+        value = min(hi, value)
+    return value
+
+
+def _load_settings():
+    if not CONFIG_PATH.exists():
+        return {}
+    try:
+        with CONFIG_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            print(f"[Config] Loaded settings from {CONFIG_PATH}")
+            return data
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"[Config] Could not load {CONFIG_PATH}: {e}")
+    return {}
+
+
+def _load_int_map(data, name, defaults, lo=0, hi=640):
+    result = defaults.copy()
+    values = data.get(name, {})
+    if not isinstance(values, dict):
+        return result
+    for key, default in defaults.items():
+        result[key] = _as_int(values.get(key, default), default, lo, hi)
+    return result
+
+
+def _load_hsv(data, name, default):
+    values = data.get(name, list(default))
+    if not isinstance(values, list) or len(values) != 3:
+        values = list(default)
+    return [
+        _as_int(values[0], default[0], 0, 179),
+        _as_int(values[1], default[1], 0, 255),
+        _as_int(values[2], default[2], 0, 255),
+    ]
+
 
 # ==================== HELPER FUNCTIONS ====================
 
@@ -310,35 +360,52 @@ class GameState:
     """Thread-safe state shared between tracking thread and GUI."""
 
     def __init__(self):
-        self.lock = Lock()
+        self.lock = RLock()
+        settings = _load_settings()
 
         # Table ROI
-        self.table_roi = TABLE_ROI.copy()
-        self.corner_radius = TABLE_CORNER_RADIUS
+        self.table_roi = _load_int_map(settings, "table_roi", TABLE_ROI, 0, 400)
+        self.corner_radius = _as_int(
+            settings.get("corner_radius", TABLE_CORNER_RADIUS),
+            TABLE_CORNER_RADIUS, 0, 300)
 
         # Mallet box & red zone
-        self.box_margins = MALLET_BOX_MARGINS.copy()
-        self.red_margins = RED_ZONE_MARGINS.copy()
+        self.box_margins = _load_int_map(
+            settings, "box_margins", MALLET_BOX_MARGINS, 0, 400)
+        self.red_margins = _load_int_map(
+            settings, "red_margins", RED_ZONE_MARGINS, 0, 400)
 
         # HSV
-        self.puck_hsv_low = list(PUCK_HSV_LOW)
-        self.puck_hsv_high = list(PUCK_HSV_HIGH)
-        self.mallet_hsv_low = list(MALLET_HSV_LOW)
-        self.mallet_hsv_high = list(MALLET_HSV_HIGH)
+        self.puck_hsv_low = _load_hsv(settings, "puck_hsv_low", PUCK_HSV_LOW)
+        self.puck_hsv_high = _load_hsv(settings, "puck_hsv_high", PUCK_HSV_HIGH)
+        self.mallet_hsv_low = _load_hsv(settings, "mallet_hsv_low", MALLET_HSV_LOW)
+        self.mallet_hsv_high = _load_hsv(settings, "mallet_hsv_high", MALLET_HSV_HIGH)
 
         # Game / defense
         self.game_enabled = False
-        self.speed = DEFAULT_SPEED
-        self.home_x = DEFAULT_HOME_X
-        self.home_y = DEFAULT_HOME_Y
-        self.goal_x = DEFAULT_GOAL_X
-        self.goal_y = DEFAULT_GOAL_Y
-        self.goal_length = DEFAULT_GOAL_LENGTH
+        self.speed = _as_int(
+            settings.get("speed", DEFAULT_SPEED),
+            DEFAULT_SPEED, 1, MAX_MOTOR_PCT)
+        self.home_x = _as_int(
+            settings.get("home_x", DEFAULT_HOME_X),
+            DEFAULT_HOME_X, 0, FRAME_WIDTH)
+        self.home_y = _as_int(
+            settings.get("home_y", DEFAULT_HOME_Y),
+            DEFAULT_HOME_Y, 0, FRAME_HEIGHT)
+        self.goal_x = _as_int(
+            settings.get("goal_x", DEFAULT_GOAL_X),
+            DEFAULT_GOAL_X, 0, FRAME_WIDTH)
+        self.goal_y = _as_int(
+            settings.get("goal_y", DEFAULT_GOAL_Y),
+            DEFAULT_GOAL_Y, 0, FRAME_HEIGHT)
+        self.goal_length = _as_int(
+            settings.get("goal_length", DEFAULT_GOAL_LENGTH),
+            DEFAULT_GOAL_LENGTH, 1, FRAME_HEIGHT)
 
         # Display toggles
-        self.show_mask = False
-        self.show_roi = True
-        self.show_trajectory = True
+        self.show_mask = bool(settings.get("show_mask", False))
+        self.show_roi = bool(settings.get("show_roi", True))
+        self.show_trajectory = bool(settings.get("show_trajectory", True))
 
         # Tracking results (written by thread, read by GUI)
         self.puck_x = 0.0
@@ -358,7 +425,41 @@ class GameState:
         self.motor_info = "A:0% B:0%"
         self.defense_state = "IDLE"
 
+        self.save_settings()
+
     # ---- Getters / setters (lock-protected) ----
+
+    def _settings_dict_locked(self):
+        return {
+            "version": CONFIG_VERSION,
+            "table_roi": self.table_roi.copy(),
+            "corner_radius": self.corner_radius,
+            "box_margins": self.box_margins.copy(),
+            "red_margins": self.red_margins.copy(),
+            "puck_hsv_low": list(self.puck_hsv_low),
+            "puck_hsv_high": list(self.puck_hsv_high),
+            "mallet_hsv_low": list(self.mallet_hsv_low),
+            "mallet_hsv_high": list(self.mallet_hsv_high),
+            "speed": self.speed,
+            "home_x": self.home_x,
+            "home_y": self.home_y,
+            "goal_x": self.goal_x,
+            "goal_y": self.goal_y,
+            "goal_length": self.goal_length,
+            "show_mask": self.show_mask,
+            "show_roi": self.show_roi,
+            "show_trajectory": self.show_trajectory,
+        }
+
+    def save_settings(self):
+        with self.lock:
+            data = self._settings_dict_locked()
+        try:
+            with CONFIG_PATH.open("w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+                f.write("\n")
+        except OSError as e:
+            print(f"[Config] Could not save {CONFIG_PATH}: {e}")
 
     def get_table_roi(self):
         with self.lock:
@@ -367,10 +468,12 @@ class GameState:
     def set_table_roi_margin(self, key, val):
         with self.lock:
             self.table_roi[key] = int(float(val))
+            self.save_settings()
 
     def set_corner_radius(self, val):
         with self.lock:
             self.corner_radius = int(float(val))
+            self.save_settings()
 
     def get_box_margins(self):
         with self.lock:
@@ -379,6 +482,7 @@ class GameState:
     def set_box_margin(self, key, val):
         with self.lock:
             self.box_margins[key] = int(float(val))
+            self.save_settings()
 
     def get_red_margins(self):
         with self.lock:
@@ -387,6 +491,7 @@ class GameState:
     def set_red_margin(self, key, val):
         with self.lock:
             self.red_margins[key] = int(float(val))
+            self.save_settings()
 
     def get_puck_hsv(self):
         with self.lock:
@@ -397,6 +502,7 @@ class GameState:
         with self.lock:
             self.puck_hsv_low = list(low)
             self.puck_hsv_high = list(high)
+            self.save_settings()
 
     def get_mallet_hsv(self):
         with self.lock:
@@ -407,6 +513,7 @@ class GameState:
         with self.lock:
             self.mallet_hsv_low = list(low)
             self.mallet_hsv_high = list(high)
+            self.save_settings()
 
     def get_speed(self):
         with self.lock:
@@ -415,6 +522,7 @@ class GameState:
     def set_speed(self, val):
         with self.lock:
             self.speed = int(float(val))
+            self.save_settings()
 
     def get_goal(self):
         with self.lock:
@@ -423,6 +531,7 @@ class GameState:
     def set_goal_param(self, param, val):
         with self.lock:
             setattr(self, f"goal_{param}", int(float(val)))
+            self.save_settings()
 
     def get_home(self):
         with self.lock:
@@ -431,10 +540,17 @@ class GameState:
     def set_home_x(self, val):
         with self.lock:
             self.home_x = int(float(val))
+            self.save_settings()
 
     def set_home_y(self, val):
         with self.lock:
             self.home_y = int(float(val))
+            self.save_settings()
+
+    def set_display_flag(self, name, value):
+        with self.lock:
+            setattr(self, name, bool(value))
+            self.save_settings()
 
     def toggle_game(self):
         with self.lock:
@@ -490,6 +606,19 @@ class ControlGUI:
 
     def _build(self):
         s = self.state
+        roi_defaults, radius_default = s.get_table_roi()
+        box_defaults = s.get_box_margins()
+        red_defaults = s.get_red_margins()
+        puck_hsv_low, puck_hsv_high = s.get_puck_hsv()
+        mallet_hsv_low, mallet_hsv_high = s.get_mallet_hsv()
+        speed_default = s.get_speed()
+        goal_x, goal_y, goal_length = s.get_goal()
+        home_x, home_y = s.get_home()
+        with s.lock:
+            show_mask = s.show_mask
+            show_roi = s.show_roi
+            show_trajectory = s.show_trajectory
+
         nb = ttk.Notebook(self.root)
         nb.pack(fill="both", expand=True, padx=5, pady=5)
 
@@ -513,11 +642,11 @@ class ControlGUI:
         spd_f.pack(fill="x", padx=8, pady=4)
         self.speed_slider = ttk.Scale(
             spd_f, from_=1, to=MAX_MOTOR_PCT, orient="horizontal")
-        self.speed_slider.set(DEFAULT_SPEED)
+        self.speed_slider.set(speed_default)
         self.speed_slider.pack(fill="x")
         self.speed_slider.configure(command=lambda v: s.set_speed(v))
         self.speed_val = ttk.Label(
-            spd_f, text=f"{DEFAULT_SPEED}%", font=("Courier", 10))
+            spd_f, text=f"{speed_default}%", font=("Courier", 10))
         self.speed_val.pack()
 
         # Goal (vertical line on the left side)
@@ -525,9 +654,9 @@ class ControlGUI:
         goal_f.pack(fill="x", padx=8, pady=4)
         self.goal_sliders = {}
         for i, (label, param, default, mx) in enumerate([
-            ("X", "x", DEFAULT_GOAL_X, self.fw),
-            ("Y", "y", DEFAULT_GOAL_Y, self.fh),
-            ("Length", "length", DEFAULT_GOAL_LENGTH, self.fh),
+            ("X", "x", goal_x, self.fw),
+            ("Y", "y", goal_y, self.fh),
+            ("Length", "length", goal_length, self.fh),
         ]):
             ttk.Label(goal_f, text=f"{label}:").grid(
                 row=i, column=0, sticky="w")
@@ -547,13 +676,13 @@ class ControlGUI:
         ttk.Label(home_f, text="X:").grid(row=0, column=0, sticky="w")
         self.home_x_sl = ttk.Scale(
             home_f, from_=0, to=self.fw, orient="horizontal", length=140)
-        self.home_x_sl.set(DEFAULT_HOME_X)
+        self.home_x_sl.set(home_x)
         self.home_x_sl.grid(row=0, column=1, sticky="ew", padx=2)
         self.home_x_sl.configure(command=lambda v: s.set_home_x(v))
         ttk.Label(home_f, text="Y:").grid(row=1, column=0, sticky="w")
         self.home_y_sl = ttk.Scale(
             home_f, from_=0, to=self.fh, orient="horizontal", length=140)
-        self.home_y_sl.set(DEFAULT_HOME_Y)
+        self.home_y_sl.set(home_y)
         self.home_y_sl.grid(row=1, column=1, sticky="ew", padx=2)
         self.home_y_sl.configure(command=lambda v: s.set_home_y(v))
         home_f.columnconfigure(1, weight=1)
@@ -568,8 +697,8 @@ class ControlGUI:
         roi_f.pack(fill="x", padx=8, pady=4)
         self.roi_sliders = {}
         for i, (name, default) in enumerate([
-            ("top", TABLE_ROI["top"]), ("bottom", TABLE_ROI["bottom"]),
-            ("left", TABLE_ROI["left"]), ("right", TABLE_ROI["right"]),
+            ("top", roi_defaults["top"]), ("bottom", roi_defaults["bottom"]),
+            ("left", roi_defaults["left"]), ("right", roi_defaults["right"]),
         ]):
             ttk.Label(roi_f, text=f"{name.title()}:").grid(
                 row=i // 2, column=(i % 2) * 2, sticky="w")
@@ -583,7 +712,7 @@ class ControlGUI:
         ttk.Label(roi_f, text="Radius:").grid(row=2, column=0, sticky="w")
         self.radius_sl = ttk.Scale(
             roi_f, from_=0, to=150, orient="horizontal", length=80)
-        self.radius_sl.set(TABLE_CORNER_RADIUS)
+        self.radius_sl.set(radius_default)
         self.radius_sl.grid(row=2, column=1, sticky="ew", padx=2)
         self.radius_sl.configure(command=lambda v: s.set_corner_radius(v))
         roi_f.columnconfigure(1, weight=1)
@@ -595,10 +724,10 @@ class ControlGUI:
         box_f.pack(fill="x", padx=8, pady=4)
         self.box_sliders = {}
         for i, (name, default) in enumerate([
-            ("top", MALLET_BOX_MARGINS["top"]),
-            ("bottom", MALLET_BOX_MARGINS["bottom"]),
-            ("left", MALLET_BOX_MARGINS["left"]),
-            ("right", MALLET_BOX_MARGINS["right"]),
+            ("top", box_defaults["top"]),
+            ("bottom", box_defaults["bottom"]),
+            ("left", box_defaults["left"]),
+            ("right", box_defaults["right"]),
         ]):
             ttk.Label(box_f, text=f"{name.title()}:").grid(
                 row=i // 2, column=(i % 2) * 2, sticky="w")
@@ -618,10 +747,10 @@ class ControlGUI:
         red_f.pack(fill="x", padx=8, pady=4)
         self.red_sliders = {}
         for i, (name, default) in enumerate([
-            ("top", RED_ZONE_MARGINS["top"]),
-            ("bottom", RED_ZONE_MARGINS["bottom"]),
-            ("left", RED_ZONE_MARGINS["left"]),
-            ("right", RED_ZONE_MARGINS["right"]),
+            ("top", red_defaults["top"]),
+            ("bottom", red_defaults["bottom"]),
+            ("left", red_defaults["left"]),
+            ("right", red_defaults["right"]),
         ]):
             ttk.Label(red_f, text=f"{name.title()}:").grid(
                 row=i // 2, column=(i % 2) * 2, sticky="w")
@@ -645,12 +774,12 @@ class ControlGUI:
         phsv.pack(fill="x", padx=8, pady=4)
         self.puck_sliders = {}
         for i, (name, default, mx) in enumerate([
-            ("H Low", PUCK_HSV_LOW[0], 179),
-            ("H High", PUCK_HSV_HIGH[0], 179),
-            ("S Low", PUCK_HSV_LOW[1], 255),
-            ("S High", PUCK_HSV_HIGH[1], 255),
-            ("V Low", PUCK_HSV_LOW[2], 255),
-            ("V High", PUCK_HSV_HIGH[2], 255),
+            ("H Low", puck_hsv_low[0], 179),
+            ("H High", puck_hsv_high[0], 179),
+            ("S Low", puck_hsv_low[1], 255),
+            ("S High", puck_hsv_high[1], 255),
+            ("V Low", puck_hsv_low[2], 255),
+            ("V High", puck_hsv_high[2], 255),
         ]):
             ttk.Label(phsv, text=f"{name}:", width=6).grid(
                 row=i // 2, column=(i % 2) * 2, sticky="w")
@@ -669,12 +798,12 @@ class ControlGUI:
         mhsv.pack(fill="x", padx=8, pady=4)
         self.mallet_sliders = {}
         for i, (name, default, mx) in enumerate([
-            ("H Low", MALLET_HSV_LOW[0], 179),
-            ("H High", MALLET_HSV_HIGH[0], 179),
-            ("S Low", MALLET_HSV_LOW[1], 255),
-            ("S High", MALLET_HSV_HIGH[1], 255),
-            ("V Low", MALLET_HSV_LOW[2], 255),
-            ("V High", MALLET_HSV_HIGH[2], 255),
+            ("H Low", mallet_hsv_low[0], 179),
+            ("H High", mallet_hsv_high[0], 179),
+            ("S Low", mallet_hsv_low[1], 255),
+            ("S High", mallet_hsv_high[1], 255),
+            ("V Low", mallet_hsv_low[2], 255),
+            ("V High", mallet_hsv_high[2], 255),
         ]):
             ttk.Label(mhsv, text=f"{name}:", width=6).grid(
                 row=i // 2, column=(i % 2) * 2, sticky="w")
@@ -690,21 +819,21 @@ class ControlGUI:
         # Display options
         disp = ttk.LabelFrame(vision_tab, text="Display", padding=5)
         disp.pack(fill="x", padx=8, pady=4)
-        self.show_mask_var = tk.BooleanVar(value=False)
+        self.show_mask_var = tk.BooleanVar(value=show_mask)
         ttk.Checkbutton(
             disp, text="Show Masks", variable=self.show_mask_var,
-            command=lambda: setattr(s, 'show_mask',
-                                    self.show_mask_var.get())).pack(anchor="w")
-        self.show_roi_var = tk.BooleanVar(value=True)
+            command=lambda: s.set_display_flag(
+                'show_mask', self.show_mask_var.get())).pack(anchor="w")
+        self.show_roi_var = tk.BooleanVar(value=show_roi)
         ttk.Checkbutton(
             disp, text="Show ROI / Bounds", variable=self.show_roi_var,
-            command=lambda: setattr(s, 'show_roi',
-                                    self.show_roi_var.get())).pack(anchor="w")
-        self.show_traj_var = tk.BooleanVar(value=True)
+            command=lambda: s.set_display_flag(
+                'show_roi', self.show_roi_var.get())).pack(anchor="w")
+        self.show_traj_var = tk.BooleanVar(value=show_trajectory)
         ttk.Checkbutton(
             disp, text="Show Trajectory", variable=self.show_traj_var,
-            command=lambda: setattr(s, 'show_trajectory',
-                                    self.show_traj_var.get())).pack(anchor="w")
+            command=lambda: s.set_display_flag(
+                'show_trajectory', self.show_traj_var.get())).pack(anchor="w")
 
         # ===== TAB 4: STATUS =====
         status_tab = ttk.Frame(nb)
@@ -720,6 +849,9 @@ class ControlGUI:
         self.mallet_label = ttk.Label(
             tf, text="Mallet: --", font=("Courier", 9))
         self.mallet_label.pack(anchor="w")
+        self.kalman_label = ttk.Label(
+            tf, text="Kalman: puck+mallet ON", font=("Courier", 9, "bold"))
+        self.kalman_label.pack(anchor="w")
         self.motor_label = ttk.Label(
             tf, text="Motors: --", font=("Courier", 9))
         self.motor_label.pack(anchor="w")
@@ -853,6 +985,7 @@ class ControlGUI:
             self.mallet_label.config(
                 text=f"Mallet: ({int(mx)},{int(my)}) "
                      f"r={int(mr)} [{ms}]")
+            self.kalman_label.config(text="Kalman: puck+mallet ON")
             self.motor_label.config(text=f"Motors: {minfo}")
             self.zone_label.config(
                 text="Zone: !! RED !!" if in_red else "Zone: OK")
@@ -1165,6 +1298,38 @@ def _inner_loop(state, stop_event, ctrl, cap,
         table_right = w - roi['right']
         table_top = roi['top']
         table_bottom = h - roi['bottom']
+        safe_left = box_margins['left'] + red_margins['left'] + mr
+        safe_right = w - box_margins['right'] - red_margins['right'] - mr
+        safe_top = box_margins['top'] + red_margins['top'] + mr
+        safe_bottom = h - box_margins['bottom'] - red_margins['bottom'] - mr
+        goal_top = goal_y - goal_len / 2.0
+        goal_bottom = goal_y + goal_len / 2.0
+        guard_top = max(goal_top, safe_top)
+        guard_bottom = min(goal_bottom, safe_bottom)
+
+        if safe_left > safe_right:
+            safe_mid = (safe_left + safe_right) / 2.0
+            safe_left = safe_right = safe_mid
+        if safe_top > safe_bottom:
+            safe_mid = (safe_top + safe_bottom) / 2.0
+            safe_top = safe_bottom = safe_mid
+        if guard_top > guard_bottom:
+            guard_top, guard_bottom = safe_top, safe_bottom
+
+        def _safe_target(x, y):
+            return (
+                max(safe_left, min(safe_right, float(x))),
+                max(safe_top, min(safe_bottom, float(y))),
+            )
+
+        def _drive_to(target_x, target_y, threshold=HOME_THRESHOLD / 2):
+            target_x, target_y = _safe_target(target_x, target_y)
+            diff_x = target_x - mx
+            diff_y = target_y - my
+            dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
+            if dist > threshold:
+                return float(diff_y), float(-diff_x)
+            return 0.0, 0.0
 
         # SAFETY: mallet not detected → STOP
         if not mallet_det:
@@ -1173,20 +1338,18 @@ def _inner_loop(state, stop_event, ctrl, cap,
 
         elif game_on:
             # ---- Autonomous defense ----
-            # Red zone left edge – the closest X the mallet can safely reach.
-            # The CoreXY boundary enforcement stops the mallet edge here.
-            rz_left = box_margins['left'] + red_margins['left']
+            # Left patrol line for the mallet centre inside the safe zone.
+            # The CoreXY controller still enforces all boundary safeties.
+            guard_x = safe_left
 
             if not puck_det or (px < 0 and py < 0):
                 # Puck lost → go home
                 defense_state = "HOMING"
-                diff_x = home_x - mx
-                diff_y = home_y - my
-                dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
-                if dist > HOME_THRESHOLD:
-                    vx = float(diff_y)        # camera→cmd 90° rotation
-                    vy = float(-diff_x)
-                else:
+                vx, vy = _drive_to(home_x, home_y, HOME_THRESHOLD)
+                target_home = _safe_target(home_x, home_y)
+                home_dist = ((target_home[0] - mx) ** 2
+                             + (target_home[1] - my) ** 2) ** 0.5
+                if home_dist <= HOME_THRESHOLD:
                     defense_state = "HOME"
 
             else:
@@ -1200,31 +1363,29 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     # Puck WILL cross the goal line.
                     intercept_x, intercept_y = goal_result
 
-                    # Find where the path crosses the red-zone edge
-                    # (the safe X where the mallet can actually wait).
+                    # Find where the path crosses the safe patrol line.
                     rz_result = predict_intercept(
                         px, py, pvx, pvy,
-                        rz_left, goal_y, goal_len,
+                        guard_x, goal_y, goal_len,
                         table_left, table_right, table_top, table_bottom)
 
-                    target_x = float(rz_left)
+                    target_x = float(guard_x)
                     if rz_result is not None:
                         target_y = rz_result[1]
                     else:
                         target_y = intercept_y
-                    target_y = max(goal_y - goal_len // 2,
-                                   min(goal_y + goal_len // 2, target_y))
+                    target_y = max(guard_top, min(guard_bottom, target_y))
                     defense_state = "INTERCEPT"
+                    vx, vy = _drive_to(target_x, target_y)
 
-                    diff_x = target_x - mx
-                    diff_y = target_y - my
-                    dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
-                    if dist > HOME_THRESHOLD / 2:
-                        vx = float(diff_y)
-                        vy = float(-diff_x)
                 else:
-                    # No collision predicted – sit still
-                    defense_state = "WAITING"
+                    # No goal crossing predicted. Guard the safe patrol line
+                    # and track puck Y without entering the red zone.
+                    target_y = max(guard_top, min(guard_bottom, py))
+                    defense_state = "GUARD"
+                    vx, vy = _drive_to(guard_x, target_y)
+                    if vx == 0.0 and vy == 0.0:
+                        defense_state = "WAITING"
 
         else:
             # ---- Manual control ----
@@ -1363,6 +1524,9 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     f"Motors: {motor_info}  Speed: {cur_speed}%",
                     (10, 66), cv2.FONT_HERSHEY_SIMPLEX, 0.40,
                     (200, 200, 200), 1)
+        cv2.putText(vis, "Kalman: puck+mallet filtering ON",
+                    (10, 84), cv2.FONT_HERSHEY_SIMPLEX, 0.40,
+                    (0, 255, 255), 1)
 
         if in_red:
             cv2.putText(vis, "!! RED ZONE !!",
@@ -1417,6 +1581,8 @@ def main():
     print("=" * 60)
     print(f"  Motor : {MOTOR_PORT} @ {MOTOR_BAUD}")
     print(f"  Camera: {CAM_INDEX}")
+    print(f"  Config: {CONFIG_PATH}")
+    print("  Kalman: puck+mallet filtering ON")
     print(f"  G = Toggle game mode | WASD/Numpad = Manual")
     print("=" * 60)
 
