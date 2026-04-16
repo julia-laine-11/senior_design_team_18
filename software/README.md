@@ -316,17 +316,31 @@ This means autonomous defense cannot bypass the project safety limits. Even if t
 
 ## Movement Conversion
 
-The defense logic computes a desired target in camera coordinates. It then converts target error into a command vector:
+The defense logic computes a desired target in camera coordinates. Robot command axes are aligned with the camera output this way:
+
+```text
+robot forward = pixel X+
+robot back    = pixel X-
+robot right   = pixel Y+
+robot left    = pixel Y-
+```
+
+Because the current motor wiring rotates the command axes relative to camera pixels, command-to-camera mapping is:
+
+```text
+camera_dx = vy
+camera_dy = -vx
+```
+
+Auto-drive uses the inverse of that mapping:
 
 ```text
 diff_x = target_x - mallet_x
 diff_y = target_y - mallet_y
 
-vx = diff_y
-vy = -diff_x
+vx = -diff_y
+vy = diff_x
 ```
-
-This compensates for the physical mounting orientation where robot command axes are rotated relative to the camera image.
 
 `CoreXYController.drive()` then converts the command vector into motor A/B commands:
 

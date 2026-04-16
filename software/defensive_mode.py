@@ -87,6 +87,7 @@ TRAJECTORY_TIME = 2.0
 # Tracking
 LOST_THRESHOLD = 15
 PUCK_LOST_TIMEOUT = 0.25
+PUCK_STABLE_FRAMES = 3
 
 # Manual drive
 KEY_RELEASE_TIMEOUT = 0.20
@@ -101,25 +102,25 @@ CONFIG_VERSION = 1
 # ==================== KEY MAPPINGS (manual mode) ====================
 
 _NUM_DIRS = {
-    ord('7'): (-1,  1), ord('8'): (0,  1), ord('9'): (1,  1),
-    ord('4'): (-1,  0), ord('5'): (0,  0), ord('6'): (1,  0),
-    ord('1'): (-1, -1), ord('2'): (0, -1), ord('3'): (1, -1),
+    ord('7'): (-1, -1), ord('8'): (-1,  0), ord('9'): (-1,  1),
+    ord('4'): (0, -1), ord('5'): (0,  0), ord('6'): (0,  1),
+    ord('1'): (1, -1), ord('2'): (1, 0), ord('3'): (1, 1),
 }
 _WASD_DIRS = {
-    ord('w'): (0,  1), ord('a'): (-1, 0),
-    ord('s'): (0, -1), ord('d'): (1,  0),
+    ord('w'): (-1,  0), ord('a'): (0, -1),
+    ord('s'): (1, 0), ord('d'): (0,  1),
     ord(' '): (0,  0),
 }
 _ARROW_DIRS = {
-    2490368: (0, 1), 2621440: (0, -1),
-    2424832: (-1, 0), 2555904: (1, 0),
+    2490368: (-1, 0), 2621440: (1, 0),
+    2424832: (0, -1), 2555904: (0, 1),
 }
 KEY_MAP = {**_NUM_DIRS, **_WASD_DIRS, **_ARROW_DIRS}
 
 DIR_NAMES = {
-    (-1, -1): "DOWN-LEFT", (0, -1): "DOWN",    (1, -1): "DOWN-RIGHT",
-    (-1,  0): "LEFT",      (0,  0): "STOP",    (1,  0): "RIGHT",
-    (-1,  1): "UP-LEFT",   (0,  1): "UP",      (1,  1): "UP-RIGHT",
+    (-1, -1): "UP-LEFT",   (-1, 0): "UP",      (-1, 1): "UP-RIGHT",
+    (0, -1): "LEFT",       (0, 0): "STOP",     (0, 1): "RIGHT",
+    (1, -1): "DOWN-LEFT",  (1, 0): "DOWN",     (1, 1): "DOWN-RIGHT",
 }
 
 
@@ -1134,6 +1135,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
     puck_lost_frames = 0
     mallet_lost_frames = 0
     puck_last_seen = time.perf_counter()
+    puck_seen_streak = 0
 
     # Manual drive
     dx, dy = 0, 0
@@ -1223,8 +1225,10 @@ def _inner_loop(state, stop_event, ctrl, cap,
                 px, py, pvx, pvy = puck_kf.correct(px, py)
             puck_lost_frames = 0
             puck_last_seen = time.perf_counter()
+            puck_seen_streak = min(PUCK_STABLE_FRAMES + 1, puck_seen_streak + 1)
         else:
             puck_lost_frames += 1
+            puck_seen_streak = 0
             if time.perf_counter() - puck_last_seen >= PUCK_LOST_TIMEOUT:
                 px, py = -1.0, -1.0
                 pvx, pvy = 0.0, 0.0
@@ -1328,7 +1332,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
             diff_y = target_y - my
             dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
             if dist > threshold:
-                return float(diff_y), float(-diff_x)
+                return float(diff_y), float(diff_x)
             return 0.0, 0.0
 
         # SAFETY: mallet not detected → STOP
@@ -1342,8 +1346,9 @@ def _inner_loop(state, stop_event, ctrl, cap,
             # The CoreXY controller still enforces all boundary safeties.
             guard_x = safe_left
 
-            if not puck_det or (px < 0 and py < 0):
-                # Puck lost → go home
+            puck_reliable = puck_det and puck_seen_streak >= PUCK_STABLE_FRAMES
+            if not puck_reliable or (px < 0 and py < 0):
+                # Puck lost/unstable → go home only.
                 defense_state = "HOMING"
                 vx, vy = _drive_to(home_x, home_y, HOME_THRESHOLD)
                 target_home = _safe_target(home_x, home_y)
