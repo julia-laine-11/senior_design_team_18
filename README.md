@@ -1,5 +1,3 @@
 # senior_design_team_18
 
-Access the KiCAD project via:
-
-`senior_design_team_18/hardware/senior_deisgn_pcb/senior_design_pcb.kicad_pro`
+See our teams progress at https://eceseniordesign.com/teams/18?semester=Fall2025
