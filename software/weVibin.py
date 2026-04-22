@@ -66,13 +66,17 @@ MALLET_BOX_MARGINS = {"top": 20, "bottom": 20, "left": 20, "right": 20}
 # Red zone (margins inward from mallet box edge)
 RED_ZONE_MARGINS = {"top": 30, "bottom": 30, "left": 30, "right": 30}
 
-# Speed
+# Speed & Ramping Constraints
 DEFAULT_SPEED = 15
+TARGET_SMOOTHING = 0.3    # Lower = smoother intercept calculation, but slight delay
+MOTOR_RAMP_RATE = 0.25    # Max percent velocity change per frame (prevents bolting)
+PROPORTIONAL_ZONE = 60.0  # Pixels away from target where robot starts slowing down
+DEADBAND_PX = 10          # Don't move if already within this many pixels
 
 # Home position (pixels)
 DEFAULT_HOME_X = 60
 DEFAULT_HOME_Y = FRAME_HEIGHT // 2
-HOME_THRESHOLD = 15
+HOME_THRESHOLD = DEADBAND_PX
 
 # Goal definition – vertical line on the LEFT side of the table.
 # Puck attacks from right → left.  The mallet patrols this line.
@@ -236,11 +240,14 @@ def find_circle(contours, min_r, max_r, pred_xy=None):
     return best
 
 
-def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02):
+def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02, max_bounces=1):
     """Predict puck trajectory with wall bounces. Returns list of (x,y)."""
     points = [(int(x), int(y))]
     left, right = bounds['left'], w - bounds['right']
     top, bottom = bounds['top'], h - bounds['bottom']
+    
+    bounces = 0
+    
     for _ in range(int(max_t / dt)):
         x += vx * dt
         y += vy * dt
@@ -250,15 +257,21 @@ def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02):
             break
         elif x >= right:
             x, vx = right, -abs(vx) * TRAJECTORY_DAMPING
+            bounces += 1
             
         if y <= top:
             y, vy = top, abs(vy) * TRAJECTORY_DAMPING
+            bounces += 1
         elif y >= bottom:
             y, vy = bottom, -abs(vy) * TRAJECTORY_DAMPING
+            bounces += 1
             
         points.append((int(x), int(y)))
-        if vx * vx + vy * vy < 25:
+        
+        # Stop predicting if the puck slows down too much OR exceeds our bounce limit
+        if vx * vx + vy * vy < 25 or bounces > max_bounces:
             break
+            
     return points
 
 
@@ -300,7 +313,6 @@ def predict_intercept(px, py, pvx, pvy, line_x, goal_y, goal_len,
             bounces += 1
 
         if x <= table_left:
-            # Reached our goal/back wall. Prediction shouldn't bounce.
             break
         elif x >= table_right:
             x, vx = table_right, -abs(vx)
@@ -607,10 +619,6 @@ class ControlGUI:
         self._build()
         self._start_update()
 
-    # ----------------------------------------------------------------
-    # Widget creation
-    # ----------------------------------------------------------------
-
     def _build(self):
         s = self.state
         roi_defaults, radius_default = s.get_table_roi()
@@ -871,7 +879,7 @@ class ControlGUI:
         stm_f.pack(fill="x", padx=8, pady=4)
         self.stm_state_label = ttk.Label(stm_f, text="State: --", font=("Courier", 9))
         self.stm_state_label.pack(anchor="w")
-        self.stm_score_label = ttk.Label(stm_f, text="Score - P: 0 | B: 0", font=("Courier", 9, "bold"))
+        self.stm_score_label = ttk.Label(stm_f, text="Score - P: 0 | Bot: 0", font=("Courier", 9, "bold"))
         self.stm_score_label.pack(anchor="w")
 
         # Box readouts
@@ -1102,7 +1110,6 @@ def tracking_thread(state, stop_event):
     proc_h = int(h * PROCESSING_SCALE)
     scale_inv = 1.0 / PROCESSING_SCALE
     hsv_buf = np.empty((proc_h, proc_w, 3), dtype=np.uint8)
-    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)) # Removed for FPS optimization
     print(f"Processing: {proc_w}x{proc_h}")
 
     # ---- Initial ROI mask (rounded) ----
@@ -1164,6 +1171,10 @@ def _inner_loop(state, stop_event, ctrl, cap,
     # Manual drive
     dx, dy = 0, 0
     last_key_time = 0.0
+    
+    # NEW: Ramping & smoothing variables
+    prev_vx, prev_vy = 0.0, 0.0
+    smoothed_target_y = None
 
     # FPS
     fps_alpha = 0.1
@@ -1218,17 +1229,16 @@ def _inner_loop(state, stop_event, ctrl, cap,
             roi_mask = _build_roi_mask(proc_w, proc_h, w, h, roi, radius)
             last_roi_key = cur_key
 
-        # ---- Vision pipeline (OPTIMIZED) ----
+        # ---- Vision pipeline ----
         small = cv2.resize(frame, (proc_w, proc_h), interpolation=cv2.INTER_LINEAR)
-        # Replaced expensive Gaussian with cheap blur, often needed for threshold stability
         cv2.blur(small, (3, 3), dst=small) 
         cv2.cvtColor(small, cv2.COLOR_BGR2HSV, dst=hsv_buf)
 
-        # Puck Mask (Skipping Morphologies for FPS)
+        # Puck Mask
         puck_mask = cv2.inRange(hsv_buf, puck_hsv_low, puck_hsv_high)
         cv2.bitwise_and(puck_mask, roi_mask, dst=puck_mask)
 
-        # Mallet Mask (Skipping Morphologies for FPS)
+        # Mallet Mask
         mallet_mask = cv2.inRange(hsv_buf, mallet_hsv_low, mallet_hsv_high)
         cv2.bitwise_and(mallet_mask, roi_mask, dst=mallet_mask)
 
@@ -1325,7 +1335,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
         # ============================================================
         #                      DEFENSE LOGIC
         # ============================================================
-        vx, vy = 0.0, 0.0
+        target_vx, target_vy = 0.0, 0.0
         defense_state = "IDLE"
         intercept_x, intercept_y = None, None
         in_red = False
@@ -1358,19 +1368,23 @@ def _inner_loop(state, stop_event, ctrl, cap,
                 max(safe_top, min(safe_bottom, float(y))),
             )
 
-        def _drive_to(target_x, target_y, threshold=HOME_THRESHOLD / 2):
+        def _drive_to(target_x, target_y, threshold=DEADBAND_PX):
             target_x, target_y = _safe_target(target_x, target_y)
             diff_x = target_x - mx
             diff_y = target_y - my
             dist = (diff_x ** 2 + diff_y ** 2) ** 0.5
             if dist > threshold:
-                return float(diff_y), float(-diff_x)
+                # NEW LOGIC: Proportional Deceleration
+                # Scale down velocity smoothly when within PROPORTIONAL_ZONE pixels to avoid overshoot
+                scale_factor = min(1.0, dist / PROPORTIONAL_ZONE)
+                return float(diff_y * scale_factor), float(-diff_x * scale_factor)
             return 0.0, 0.0
 
         # SAFETY: mallet not detected → STOP
         if not mallet_det:
             defense_state = "SAFETY STOP"
-            vx, vy = 0.0, 0.0
+            target_vx, target_vy = 0.0, 0.0
+            smoothed_target_y = None
 
         elif game_on:
             # ---- Autonomous defense ----
@@ -1379,10 +1393,11 @@ def _inner_loop(state, stop_event, ctrl, cap,
             if not puck_det or (px < 0 and py < 0):
                 # Puck lost → go home
                 defense_state = "HOMING"
-                vx, vy = _drive_to(home_x, home_y, HOME_THRESHOLD)
+                smoothed_target_y = None
+                target_vx, target_vy = _drive_to(home_x, home_y, HOME_THRESHOLD)
+                
                 target_home = _safe_target(home_x, home_y)
-                home_dist = ((target_home[0] - mx) ** 2
-                             + (target_home[1] - my) ** 2) ** 0.5
+                home_dist = ((target_home[0] - mx) ** 2 + (target_home[1] - my) ** 2) ** 0.5
                 if home_dist <= HOME_THRESHOLD:
                     defense_state = "HOME"
 
@@ -1393,18 +1408,14 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     goal_x, goal_y, goal_len,
                     table_left, table_right, table_top, table_bottom)
 
-                # Are they attacking us? (puck moving left towards our goal)
                 is_attacking = pvx < -10.0
 
                 if goal_result is not None and is_attacking:
                     # Puck WILL cross the goal line.
                     intercept_x, intercept_y = goal_result
 
-                    # NEW LOGIC: V-Shape Forward push to cut off sharp angles
-                    # If puck is hitting near the edges, we push slightly forward so
-                    # it doesn't glance off the round mallet and into the goal.
+                    # V-Shape Forward push to cut off sharp angles
                     dy_from_center = abs(intercept_y - goal_y)
-                    # Push forward up to 50 pixels, depending on how far from center
                     push_forward = min(50.0, dy_from_center * 0.4)
                     target_x = min(safe_right, guard_x + push_forward)
 
@@ -1414,35 +1425,56 @@ def _inner_loop(state, stop_event, ctrl, cap,
                         target_x, goal_y, goal_len,
                         table_left, table_right, table_top, table_bottom)
 
-                    if rz_result is not None:
-                        target_y = rz_result[1]
+                    raw_target_y = rz_result[1] if rz_result is not None else intercept_y
+                    
+                    # NEW LOGIC: Target Smoothing (Low Pass Filter on Target Y)
+                    if smoothed_target_y is None:
+                        smoothed_target_y = raw_target_y
                     else:
-                        target_y = intercept_y
-                        
-                    target_y = max(guard_top, min(guard_bottom, target_y))
+                        smoothed_target_y = (smoothed_target_y * (1.0 - TARGET_SMOOTHING)) + (raw_target_y * TARGET_SMOOTHING)
+
+                    target_y = max(guard_top, min(guard_bottom, smoothed_target_y))
                     defense_state = "INTERCEPT"
-                    vx, vy = _drive_to(target_x, target_y)
+                    target_vx, target_vy = _drive_to(target_x, target_y)
 
                 else:
-                    # NEW LOGIC: Retreat / Reset when puck is moving away
+                    # Retreat / Reset when puck is moving away
                     if pvx > 30.0:
-                        # Moving away fast -> reset to center home
-                        target_y = home_y
+                        raw_target_y = home_y
                         defense_state = "RESETTING"
                     else:
-                        # Slow or hovering -> gentle track but bias towards center
-                        target_y = (py + home_y) / 2.0
+                        raw_target_y = (py + home_y) / 2.0
                         defense_state = "GUARD"
                         
-                    target_y = max(guard_top, min(guard_bottom, target_y))
-                    vx, vy = _drive_to(guard_x, target_y)
-                    if vx == 0.0 and vy == 0.0 and defense_state == "GUARD":
+                    # Smooth non-intercept targets as well
+                    if smoothed_target_y is None:
+                        smoothed_target_y = raw_target_y
+                    else:
+                        smoothed_target_y = (smoothed_target_y * (1.0 - TARGET_SMOOTHING)) + (raw_target_y * TARGET_SMOOTHING)
+                        
+                    target_y = max(guard_top, min(guard_bottom, smoothed_target_y))
+                    target_vx, target_vy = _drive_to(guard_x, target_y)
+                    
+                    if target_vx == 0.0 and target_vy == 0.0 and defense_state == "GUARD":
                         defense_state = "WAITING"
 
         else:
             # ---- Manual control ----
             defense_state = "MANUAL"
-            vx, vy = float(dx), float(dy)
+            target_vx, target_vy = float(dx), float(dy)
+            smoothed_target_y = None
+
+        # ============================================================
+        # NEW LOGIC: Acceleration Ramping before hitting the motor
+        # ============================================================
+        vx = (prev_vx * (1.0 - MOTOR_RAMP_RATE)) + (target_vx * MOTOR_RAMP_RATE)
+        vy = (prev_vy * (1.0 - MOTOR_RAMP_RATE)) + (target_vy * MOTOR_RAMP_RATE)
+        
+        # Hard lock to perfectly zero if target speeds are zero to prevent electrical humming
+        if abs(vx) < 1.0 and abs(vy) < 1.0 and target_vx == 0.0 and target_vy == 0.0:
+            vx, vy = 0.0, 0.0
+            
+        prev_vx, prev_vy = vx, vy
 
         # ---- Drive motor ----
         actual_vx, actual_vy = 0.0, 0.0
@@ -1539,6 +1571,11 @@ def _inner_loop(state, stop_event, ctrl, cap,
         if intercept_x is not None:
             ix, iy = int(intercept_x), int(intercept_y)
             cv2.circle(vis, (ix, iy), 10, (0, 255, 255), 3)
+            
+            # Show the smoothed target in orange if it differs from raw intercept
+            if smoothed_target_y is not None:
+                cv2.circle(vis, (ix, int(smoothed_target_y)), 6, (0, 165, 255), -1)
+
             if mallet_det:
                 cv2.line(vis, (int(mx), int(my)), (ix, iy),
                          (0, 255, 255), 1, cv2.LINE_AA)
