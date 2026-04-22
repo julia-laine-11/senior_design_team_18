@@ -1465,14 +1465,23 @@ def _inner_loop(state, stop_event, ctrl, cap,
             smoothed_target_y = None
 
         # ============================================================
-        # NEW LOGIC: Acceleration Ramping before hitting the motor
+        # NEW LOGIC: Acceleration Ramping (Ramp UP only, snap on stop)
         # ============================================================
-        vx = (prev_vx * (1.0 - MOTOR_RAMP_RATE)) + (target_vx * MOTOR_RAMP_RATE)
-        vy = (prev_vy * (1.0 - MOTOR_RAMP_RATE)) + (target_vy * MOTOR_RAMP_RATE)
-        
-        # Hard lock to perfectly zero if target speeds are zero to prevent electrical humming
-        if abs(vx) < 1.0 and abs(vy) < 1.0 and target_vx == 0.0 and target_vy == 0.0:
-            vx, vy = 0.0, 0.0
+        # X-Axis Ramping
+        if abs(target_vx) > abs(prev_vx) and (target_vx * prev_vx >= 0):
+            # Accelerating in the same direction -> smoothly ramp up
+            vx = (prev_vx * (1.0 - MOTOR_RAMP_RATE)) + (target_vx * MOTOR_RAMP_RATE)
+        else:
+            # Slowing down, stopping, or reversing -> apply instantly
+            vx = target_vx
+
+        # Y-Axis Ramping
+        if abs(target_vy) > abs(prev_vy) and (target_vy * prev_vy >= 0):
+            # Accelerating in the same direction -> smoothly ramp up
+            vy = (prev_vy * (1.0 - MOTOR_RAMP_RATE)) + (target_vy * MOTOR_RAMP_RATE)
+        else:
+            # Slowing down, stopping, or reversing -> apply instantly
+            vy = target_vy
             
         prev_vx, prev_vy = vx, vy
 
