@@ -24,6 +24,7 @@
 
 #define COLOR_RED   1
 #define COLOR_BLUE  4
+#define COLOR_WHITE 7
 
 #define CHAR_HEIGHT 5
 #define CHAR_WIDTH 4
@@ -340,18 +341,18 @@ const uint8_t s5_N[5][5] = {{7,7,0,0,7},{7,7,7,0,7},{7,0,7,0,7},{7,0,7,7,7},{7,0
 const uint8_t s5_I[5][5] = {{7,7,7,7,7},{0,0,7,0,0},{0,0,7,0,0},{0,0,7,0,0},{7,7,7,7,7}};
 const uint8_t s5_R[5][5] = {{7,7,7,7,0},{7,7,0,7,7},{7,7,7,7,0},{7,7,0,7,0},{7,7,0,0,7}};
 
-// 4x5 Font for Win Screen Text
-const uint8_t s4_H[5][4] = {{7,0,0,7},{7,0,0,7},{7,7,7,7},{7,0,0,7},{7,0,0,7}};
-const uint8_t s4_U[5][4] = {{7,0,0,7},{7,0,0,7},{7,0,0,7},{7,0,0,7},{0,7,7,0}};
-const uint8_t s4_M[5][4] = {{7,0,0,7},{7,7,7,7},{7,7,7,7},{7,0,0,7},{7,0,0,7}};
-const uint8_t s4_A[5][4] = {{0,7,7,0},{7,0,0,7},{7,7,7,7},{7,0,0,7},{7,0,0,7}};
-const uint8_t s4_N[5][4] = {{7,7,0,7},{7,7,0,7},{7,7,7,7},{7,0,7,7},{7,0,0,7}};
-const uint8_t s4_W[5][4] = {{7,0,0,7},{7,0,0,7},{7,0,0,7},{7,7,7,7},{0,7,7,0}};
-const uint8_t s4_I[5][4] = {{7,7,7,7},{0,7,7,0},{0,7,7,0},{0,7,7,0},{7,7,7,7}};
-const uint8_t s4_S[5][4] = {{0,7,7,7},{7,0,0,0},{0,7,7,0},{0,0,0,7},{7,7,7,0}};
+// Standard 4x5 Font for Win Screen Text (Redrawn)
 const uint8_t s4_B[5][4] = {{7,7,7,0},{7,0,0,7},{7,7,7,0},{7,0,0,7},{7,7,7,0}};
-const uint8_t s4_O[5][4] = {{0,7,7,0},{7,0,0,7},{7,0,0,7},{7,0,0,7},{0,7,7,0}};
-const uint8_t s4_T[5][4] = {{7,7,7,7},{0,7,7,0},{0,7,7,0},{0,7,7,0},{0,7,7,0}};
+const uint8_t s4_L[5][4] = {{7,0,0,0},{7,0,0,0},{7,0,0,0},{7,0,0,0},{7,7,7,7}};
+const uint8_t s4_U[5][4] = {{7,0,0,7},{7,0,0,7},{7,0,0,7},{7,0,0,7},{0,7,7,0}};
+const uint8_t s4_E[5][4] = {{7,7,7,7},{7,0,0,0},{7,7,7,0},{7,0,0,0},{7,7,7,7}};
+const uint8_t s4_R[5][4] = {{7,7,7,0},{7,0,0,7},{7,7,7,0},{7,0,7,0},{7,0,0,7}};
+const uint8_t s4_D[5][4] = {{7,7,7,0},{7,0,0,7},{7,0,0,7},{7,0,0,7},{7,7,7,0}};
+
+const uint8_t s4_W[5][4] = {{7,0,0,7},{7,0,0,7},{7,0,0,7},{7,7,7,7},{7,0,0,7}};
+const uint8_t s4_I[5][4] = {{7,7,7,7},{0,7,7,0},{0,7,7,0},{0,7,7,0},{7,7,7,7}};
+const uint8_t s4_N[5][4] = {{7,0,0,7},{7,7,0,7},{7,0,7,7},{7,0,0,7},{7,0,0,7}};
+const uint8_t s4_S[5][4] = {{0,7,7,7},{7,0,0,0},{0,7,7,0},{0,0,0,7},{7,7,7,0}};
 
 // Thick Arcade Numbers
 const uint8_t sprite_0[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,0,7,7,7,7,7,7,0,0},{0,7,7,7,7,7,7,7,7,0},{0,7,7,0,0,0,0,7,7,0},{0,7,7,0,0,0,0,7,7,0},{0,7,7,0,0,0,0,7,7,0},{0,7,7,0,0,0,0,7,7,0},{0,7,7,0,0,0,0,7,7,0},{0,7,7,0,0,0,0,7,7,0},{0,7,7,0,0,0,0,7,7,0},{0,7,7,0,0,0,0,7,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,7,7,7,7,7,7,0,0},{0,0,0,0,0,0,0,0,0,0}};
@@ -369,10 +370,11 @@ const uint8_t (*sprite_numbers[])[NUM_WIDTH] = {
     sprite_0, sprite_1, sprite_2, sprite_3, sprite_4, sprite_5, sprite_6, sprite_7, sprite_8, sprite_9
 };
 
-// Computes a vertical offset for the bubble wave effect
-int get_bubble_offset(int x_center) {
-    int wave_x = (anim_tick / 3) % 50; 
-    int dist = ABS(wave_x - x_center);
+// Computes a vertical offset for the letter-by-letter wave effect
+// Takes the absolute letter index (0 through 7)
+int get_bubble_offset(int index) {
+    int wave_pos = (anim_tick / 4) % 40; 
+    int dist = ABS(wave_pos - index);
     if (dist == 0) return -2;
     if (dist == 1) return -1;
     return 0;
@@ -380,41 +382,36 @@ int get_bubble_offset(int x_center) {
 
 void start_screen(void) {
     int ya = 6;
-    DrawSprite5(1,  ya + get_bubble_offset(3), s5_A, COLOR_RED);
-    DrawSprite5(7,  ya + get_bubble_offset(9), s5_U, COLOR_RED);
-    DrawSprite5(13, ya + get_bubble_offset(15), s5_T, COLOR_RED);
-    DrawSprite5(19, ya + get_bubble_offset(21), s5_O, COLOR_RED);
-    DrawSprite5(25, ya + get_bubble_offset(27), s5_N, COLOR_RED);
+    DrawSprite5(1,  ya + get_bubble_offset(0), s5_A, COLOR_RED);
+    DrawSprite5(7,  ya + get_bubble_offset(1), s5_U, COLOR_RED);
+    DrawSprite5(13, ya + get_bubble_offset(2), s5_T, COLOR_RED);
+    DrawSprite5(19, ya + get_bubble_offset(3), s5_O, COLOR_RED);
+    DrawSprite5(25, ya + get_bubble_offset(4), s5_N, COLOR_RED);
     
     int yb = 18;
-    DrawSprite5(14, yb + get_bubble_offset(16), s5_A, COLOR_BLUE);
-    DrawSprite5(20, yb + get_bubble_offset(22), s5_I, COLOR_BLUE);
-    DrawSprite5(26, yb + get_bubble_offset(28), s5_R, COLOR_BLUE);  
+    DrawSprite5(14, yb + get_bubble_offset(5), s5_A, COLOR_BLUE);
+    DrawSprite5(20, yb + get_bubble_offset(6), s5_I, COLOR_BLUE);
+    DrawSprite5(26, yb + get_bubble_offset(7), s5_R, COLOR_BLUE);  
 }
 
 void draw_zipper_border(uint8_t color) {
     int p = 0;
-    int offset = (anim_tick / 4) % 2; // Shifts the zigzag pattern to rotate
+    // Increased divisor from 4 to 10 to dramatically slow down the scroll
+    int offset = (anim_tick / 10) % 2; 
     
-    // Top Edge
     for (int x = 1; x <= 30; x++) { p++; SetPixel(x, ((p + offset) % 2 == 0) ? 1 : 2, color); }
-    // Right Edge
     for (int y = 2; y <= 30; y++) { p++; SetPixel(((p + offset) % 2 == 0) ? 30 : 29, y, color); }
-    // Bottom Edge
     for (int x = 29; x >= 1; x--) { p++; SetPixel(x, ((p + offset) % 2 == 0) ? 30 : 29, color); }
-    // Left Edge
     for (int y = 29; y >= 2; y--) { p++; SetPixel(((p + offset) % 2 == 0) ? 1 : 2, y, color); }
 }
 
 void draw_win_screen(void) {
-    // 1. Process and draw fireworks in the background
     for (int i = 0; i < NUM_FW; i++) {
         if (fws[i].frame == 0) {
             if ((rand() % 100) < 5) { 
                 fws[i].x = 4 + (rand() % 24);
                 fws[i].y = 4 + (rand() % 24);
                 
-                // Shift fireworks to the top/bottom edges to not obstruct text
                 if (fws[i].x > 4 && fws[i].x < 28 && fws[i].y > 6 && fws[i].y < 24) {
                     if (rand()%2 == 0) fws[i].y = 2 + rand()%4;
                     else fws[i].y = 25 + rand()%4;
@@ -450,26 +447,24 @@ void draw_win_screen(void) {
     uint8_t win_color = (player_score >= WINNING_SCORE) ? COLOR_BLUE : COLOR_RED;
     draw_zipper_border(win_color);
     
-    // 3. Draw Winning Text with Bubble Wave
     int base_y1 = 10;
     int base_y2 = 17;
 
     if (player_score >= WINNING_SCORE) {
-        DrawSprite(4,  base_y1 + get_bubble_offset(6),  CHAR_HEIGHT, CHAR_WIDTH, s4_H, COLOR_BLUE);
-        DrawSprite(9,  base_y1 + get_bubble_offset(11), CHAR_HEIGHT, CHAR_WIDTH, s4_U, COLOR_BLUE);
-        DrawSprite(14, base_y1 + get_bubble_offset(16), CHAR_HEIGHT, CHAR_WIDTH, s4_M, COLOR_BLUE);
-        DrawSprite(19, base_y1 + get_bubble_offset(21), CHAR_HEIGHT, CHAR_WIDTH, s4_A, COLOR_BLUE);
-        DrawSprite(24, base_y1 + get_bubble_offset(26), CHAR_HEIGHT, CHAR_WIDTH, s4_N, COLOR_BLUE);
+        DrawSprite(6,  base_y1 + get_bubble_offset(0), CHAR_HEIGHT, CHAR_WIDTH, s4_B, COLOR_BLUE);
+        DrawSprite(11, base_y1 + get_bubble_offset(1), CHAR_HEIGHT, CHAR_WIDTH, s4_L, COLOR_BLUE);
+        DrawSprite(16, base_y1 + get_bubble_offset(2), CHAR_HEIGHT, CHAR_WIDTH, s4_U, COLOR_BLUE);
+        DrawSprite(21, base_y1 + get_bubble_offset(3), CHAR_HEIGHT, CHAR_WIDTH, s4_E, COLOR_BLUE);
     } else {
-        DrawSprite(9,  base_y1 + get_bubble_offset(11), CHAR_HEIGHT, CHAR_WIDTH, s4_B, COLOR_RED);
-        DrawSprite(14, base_y1 + get_bubble_offset(16), CHAR_HEIGHT, CHAR_WIDTH, s4_O, COLOR_RED);
-        DrawSprite(19, base_y1 + get_bubble_offset(21), CHAR_HEIGHT, CHAR_WIDTH, s4_T, COLOR_RED);
+        DrawSprite(8,  base_y1 + get_bubble_offset(0), CHAR_HEIGHT, CHAR_WIDTH, s4_R, COLOR_RED);
+        DrawSprite(13, base_y1 + get_bubble_offset(1), CHAR_HEIGHT, CHAR_WIDTH, s4_E, COLOR_RED);
+        DrawSprite(18, base_y1 + get_bubble_offset(2), CHAR_HEIGHT, CHAR_WIDTH, s4_D, COLOR_RED);
     }
     
-    DrawSprite(6,  base_y2 + get_bubble_offset(8),  CHAR_HEIGHT, CHAR_WIDTH, s4_W, win_color);
-    DrawSprite(11, base_y2 + get_bubble_offset(13), CHAR_HEIGHT, CHAR_WIDTH, s4_I, win_color);
-    DrawSprite(16, base_y2 + get_bubble_offset(18), CHAR_HEIGHT, CHAR_WIDTH, s4_N, win_color);
-    DrawSprite(21, base_y2 + get_bubble_offset(23), CHAR_HEIGHT, CHAR_WIDTH, s4_S, win_color);
+    DrawSprite(6,  base_y2 + get_bubble_offset(4), CHAR_HEIGHT, CHAR_WIDTH, s4_W, win_color);
+    DrawSprite(11, base_y2 + get_bubble_offset(5), CHAR_HEIGHT, CHAR_WIDTH, s4_I, win_color);
+    DrawSprite(16, base_y2 + get_bubble_offset(6), CHAR_HEIGHT, CHAR_WIDTH, s4_N, win_color);
+    DrawSprite(21, base_y2 + get_bubble_offset(7), CHAR_HEIGHT, CHAR_WIDTH, s4_S, win_color);
 }
 
 //===========================================================================
@@ -485,7 +480,6 @@ void TIM14_IRQHandler(void) {
         static uint16_t p_db = 0xFFFF;
         static uint16_t b_db = 0xFFFF;
 
-        // If in lockout, ignore sensors entirely and freeze history at unbroken
         if (sensor_cooldown > 0) {
             sensor_cooldown--;
             p_db = 0xFFFF; 
@@ -494,19 +488,14 @@ void TIM14_IRQHandler(void) {
             return;
         }
 
-        // Read pins. 1 = Clear/Unbroken, 0 = Broken
         uint8_t p_read = (GPIOA->IDR & (1 << 12)) ? 1 : 0; 
         uint8_t b_read = (GPIOA->IDR & (1 << 11)) ? 1 : 0; 
 
-        // Shift left and insert the new 1ms reading
         p_db = (p_db << 1) | p_read;
         b_db = (b_db << 1) | b_read;
 
         bool scored = false;
         
-        // 0x07FF = 11 bits (0b0000_0111_1111_1111). 
-        // We want the oldest bit to be 1 (unbroken), and the newest 10 bits to be 0 (solidly broken for 10ms).
-        // If there is ANY noise (a '1' sneaks into the bottom 10 bits), this statement will reject it.
         if ((p_db & 0x07FF) == 0x0400) {
             player_score++;
             scored = true;
@@ -515,11 +504,9 @@ void TIM14_IRQHandler(void) {
             scored = true;
         }
 
-        // Only trigger the lockout if a clean goal was registered
         if (scored) {
             sensor_cooldown = GOAL_COOLDOWN_TICKS;
             
-            // Wipe history immediately so concurrent or bouncy hits don't register
             p_db = 0xFFFF; 
             b_db = 0xFFFF;
 
@@ -563,6 +550,9 @@ int main(void) {
     int last_b_score = 0;
     int p_bounce = 0;
     int b_bounce = 0;
+    
+    int p_splash_frame = 0;
+    int b_splash_frame = 0;
     
     send_state_byte();
 
@@ -609,8 +599,10 @@ int main(void) {
                 last_b_score = 0;
                 p_bounce = 0;
                 b_bounce = 0;
-                sensor_cooldown = 0; // Wipe any lingering cooldown from the previous game
-                for(int i=0; i<NUM_FW; i++) fws[i].frame = 0; // Clear fireworks
+                p_splash_frame = 0;
+                b_splash_frame = 0;
+                sensor_cooldown = 0; 
+                for(int i=0; i<NUM_FW; i++) fws[i].frame = 0; 
                 oled_needs_update = 1;
                 send_state_byte(); 
             } else if (ui_state == UI_STATE_PLAY) {
@@ -634,20 +626,20 @@ int main(void) {
             } 
             else if (ui_state == UI_STATE_MENU) {
                 if (selected_mode == MODE_PLAYER) {
-                    spi1_display1("> Human         ");
-                    spi1_display2("  Bot           ");
+                    spi1_display1("> Blue (Human)  ");
+                    spi1_display2("  Red (Bot)     ");
                 } else {
-                    spi1_display1("  Human         ");
-                    spi1_display2("> Bot           ");
+                    spi1_display1("  Blue (Human)  ");
+                    spi1_display2("> Red (Bot)     ");
                 }
             } 
             else if (ui_state == UI_STATE_PLAY) {
                 if (game_mode == MODE_PLAYER) {
                     spi1_display1("Playing:        ");
-                    spi1_display2("Human Mode      ");
+                    spi1_display2("Blue (Human)    ");
                 } else {
                     spi1_display1("Playing:        ");
-                    spi1_display2("Bot Mode        ");
+                    spi1_display2("Red (Bot)       ");
                 }
             }
         }
@@ -662,8 +654,17 @@ int main(void) {
             if (!game_active && (player_score >= WINNING_SCORE || bot_score >= WINNING_SCORE)) {
                 draw_win_screen();
             } else {
-                if (player_score > last_p_score) { p_bounce = 11; last_p_score = player_score; }
-                if (bot_score > last_b_score) { b_bounce = 11; last_b_score = bot_score; }
+                // Score Update Triggers
+                if (player_score > last_p_score) { 
+                    p_bounce = 11; 
+                    p_splash_frame = 1; 
+                    last_p_score = player_score; 
+                }
+                if (bot_score > last_b_score) { 
+                    b_bounce = 11; 
+                    b_splash_frame = 1; 
+                    last_b_score = bot_score; 
+                }
                 
                 if (p_bounce > 0) p_bounce--;
                 if (b_bounce > 0) b_bounce--;
@@ -671,6 +672,43 @@ int main(void) {
                 int p_y = 9 + bounce_lut[p_bounce];
                 int b_y = 9 + bounce_lut[b_bounce];
 
+                // Player White Splash Render
+                if (p_splash_frame > 0) {
+                    int r = p_splash_frame / 2;
+                    int cx = 8, cy = 16; // Center of left number
+                    if (r <= 6) {
+                        SetPixel(cx + r, cy, COLOR_WHITE); SetPixel(cx - r, cy, COLOR_WHITE);
+                        SetPixel(cx, cy + r, COLOR_WHITE); SetPixel(cx, cy - r, COLOR_WHITE);
+                        if (r > 1) {
+                            int d = r - 1;
+                            SetPixel(cx + d, cy + d, COLOR_WHITE); SetPixel(cx - d, cy - d, COLOR_WHITE);
+                            SetPixel(cx + d, cy - d, COLOR_WHITE); SetPixel(cx - d, cy + d, COLOR_WHITE);
+                        }
+                        p_splash_frame++;
+                    } else {
+                        p_splash_frame = 0;
+                    }
+                }
+
+                // Bot White Splash Render
+                if (b_splash_frame > 0) {
+                    int r = b_splash_frame / 2;
+                    int cx = 24, cy = 16; // Center of right number
+                    if (r <= 6) {
+                        SetPixel(cx + r, cy, COLOR_WHITE); SetPixel(cx - r, cy, COLOR_WHITE);
+                        SetPixel(cx, cy + r, COLOR_WHITE); SetPixel(cx, cy - r, COLOR_WHITE);
+                        if (r > 1) {
+                            int d = r - 1;
+                            SetPixel(cx + d, cy + d, COLOR_WHITE); SetPixel(cx - d, cy - d, COLOR_WHITE);
+                            SetPixel(cx + d, cy - d, COLOR_WHITE); SetPixel(cx - d, cy + d, COLOR_WHITE);
+                        }
+                        b_splash_frame++;
+                    } else {
+                        b_splash_frame = 0;
+                    }
+                }
+
+                // Numbers draw OVER the splash
                 if (player_score < 10)
                     DrawSprite(3, p_y, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[player_score], COLOR_BLUE);
                 if (bot_score < 10)
