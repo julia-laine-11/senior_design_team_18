@@ -261,17 +261,7 @@ def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02):
 def predict_intercept(px, py, pvx, pvy, line_x, goal_y, goal_len,
                       table_left, table_right, table_top, table_bottom,
                       max_t=2.0, dt=0.02, max_bounces=1):
-    """Predict where the puck crosses a vertical line (x = line_x).
-
-    Extends the puck's current direction with at most *max_bounces*
-    wall reflections (default 1).  No damping or speed thresholds –
-    purely geometric.
-
-    Only considers crossings whose Y falls within
-    [goal_y - goal_len/2, goal_y + goal_len/2].
-
-    Returns (line_x, intercept_y) or None.
-    """
+    """Predict where the puck crosses a vertical line (x = line_x)."""
     x, y = float(px), float(py)
     vx, vy = float(pvx), float(pvy)
     goal_top = goal_y - goal_len / 2.0
@@ -407,7 +397,7 @@ class GameState:
         self.show_roi = bool(settings.get("show_roi", True))
         self.show_trajectory = bool(settings.get("show_trajectory", True))
 
-        # Tracking results (written by thread, read by GUI)
+        # Tracking results
         self.puck_x = 0.0
         self.puck_y = 0.0
         self.puck_speed = 0.0
@@ -424,8 +414,21 @@ class GameState:
         self.intercept_y = None
         self.motor_info = "A:0% B:0%"
         self.defense_state = "IDLE"
+        
+        # --- NEW: STM32 Incoming State ---
+        self.stm_playing = False
+        self.stm_mode = "BOT"
+        self.stm_pscore = 0
+        self.stm_bscore = 0
 
         self.save_settings()
+
+    def update_stm_state(self, playing, mode, pscore, bscore):
+        with self.lock:
+            self.stm_playing = playing
+            self.stm_mode = mode
+            self.stm_pscore = pscore
+            self.stm_bscore = bscore
 
     # ---- Getters / setters (lock-protected) ----
 
@@ -596,7 +599,7 @@ class ControlGUI:
         self.fh = frame_h
         self.root = tk.Tk()
         self.root.title("Defense Mode Controls")
-        self.root.geometry("470x720")
+        self.root.geometry("470x780")
         self._build()
         self._start_update()
 
@@ -858,6 +861,14 @@ class ControlGUI:
         self.zone_label = ttk.Label(
             tf, text="Zone: OK", font=("Courier", 9))
         self.zone_label.pack(anchor="w")
+        
+        # --- NEW: STM32 Incoming UART Data ---
+        stm_f = ttk.LabelFrame(status_tab, text="STM32 Hardware State (UART RX)", padding=5)
+        stm_f.pack(fill="x", padx=8, pady=4)
+        self.stm_state_label = ttk.Label(stm_f, text="State: --", font=("Courier", 9))
+        self.stm_state_label.pack(anchor="w")
+        self.stm_score_label = ttk.Label(stm_f, text="Score - P: 0 | B: 0", font=("Courier", 9, "bold"))
+        self.stm_score_label.pack(anchor="w")
 
         # Box readouts
         ro = ttk.LabelFrame(status_tab, text="Box Readouts (px)", padding=5)
@@ -975,6 +986,12 @@ class ControlGUI:
                 game = s.game_enabled
                 dstate = s.defense_state
                 spd = s.speed
+                
+                # Fetch STM32 State values
+                stm_playing = s.stm_playing
+                stm_mode = s.stm_mode
+                stm_pscore = s.stm_pscore
+                stm_bscore = s.stm_bscore
 
             self.fps_label.config(text=f"FPS: {fps:.0f}")
             ps = "Y" if pdet else "N"
@@ -996,6 +1013,11 @@ class ControlGUI:
                 text="GAME ON  (G to toggle)" if game
                 else "OFF  (G to toggle)")
             self.defense_label.config(text=f"State: {dstate}")
+            
+            # --- Update STM32 Status panel ---
+            status_text = "PLAYING" if stm_playing else "MENU/IDLE"
+            self.stm_state_label.config(text=f"State: {status_text} ({stm_mode})")
+            self.stm_score_label.config(text=f"Score - Player: {stm_pscore} | Bot: {stm_bscore}")
 
             # Readouts
             roi, rad = s.get_table_roi()
@@ -1171,6 +1193,25 @@ def _inner_loop(state, stop_event, ctrl, cap,
                 box_margins["left"], box_margins["top"],
                 w - box_margins["right"], h - box_margins["bottom"]]
             ctrl.red_zone_margins = red_margins
+            
+            # --- NEW: Read Incoming UART Data from STM32 ---
+            # Try to fetch the underlying serial object (usually named 'ser' or 'serial' in PySerial wrappers)
+            ser_obj = getattr(ctrl, 'ser', getattr(ctrl, 'serial', None))
+            if ser_obj and ser_obj.in_waiting > 0:
+                try:
+                    # Flush the buffer and keep only the latest state byte
+                    while ser_obj.in_waiting > 0:
+                        rx_byte = int.from_bytes(ser_obj.read(1), 'little')
+                        
+                        # Unpack STM32 state byte (Bit 7: Active, Bit 6: Mode, Bits 5-3: P1, Bits 2-0: B1)
+                        stm_playing = bool(rx_byte & 0x80)
+                        stm_mode = "HUMAN" if (rx_byte & 0x40) else "BOT"
+                        stm_pscore = (rx_byte >> 3) & 0x07
+                        stm_bscore = rx_byte & 0x07
+                        
+                        state.update_stm_state(stm_playing, stm_mode, stm_pscore, stm_bscore)
+                except Exception as e:
+                    print(f"UART RX Error: {e}")
 
         # ---- Rebuild ROI mask if changed ----
         cur_key = _roi_key(roi, radius)
