@@ -16,33 +16,33 @@
   "red_margins": {
     "top": 39,
     "bottom": 30,
-    "left": 17,
+    "left": 28,
     "right": 90
   },
   "puck_hsv_low": [
-    53,
-    50,
-    50
+    41,
+    47,
+    107
   ],
   "puck_hsv_high": [
-    99,
-    255,
+    88,
+    181,
     255
   ],
   "mallet_hsv_low": [
-    0,
-    127,
-    25
+    2,
+    129,
+    175
   ],
   "mallet_hsv_high": [
-    16,
-    185,
-    245
+    12,
+    191,
+    231
   ],
-  "speed": 71,
-  "home_x": 120,
+  "speed": 70,
+  "home_x": 82,
   "home_y": 262,
-  "goal_x": 13,
+  "goal_x": 24,
   "goal_y": 258,
   "goal_length": 124,
   "show_mask": true,

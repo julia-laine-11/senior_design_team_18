@@ -19,6 +19,21 @@
 # Dependencies:
 #   pip install opencv-python numpy pyserial
 # ==============================
+
+
+
+# FPS:45 P:Y M:Y [MAN] MANUAL   
+# !! Loop error: unsupported operand type(s) for *: 'NoneType' and 'float'
+# Traceback (most recent call last):
+#   File "/home/nando/GitHub/SD/senior_design_team_18/software/VIbept2.py", line 1146, in tracking_thread
+#     _inner_loop(state, stop_event, ctrl, cap,
+#   File "/home/nando/GitHub/SD/senior_design_team_18/software/VIbept2.py", line 1498, in _inner_loop
+#     smoothed_target_y = (smoothed_target_y * (1.0 - TARGET_SMOOTHING)) + (raw_target_y * TARGET_SMOOTHING)
+#                          ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~
+# TypeError: unsupported operand type(s) for *: 'NoneType' and 'float'
+
+# Stopping motors...
+# [CoreXY] Port closed.
 import numpy as np
 import time
 import cv2
