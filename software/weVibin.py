@@ -240,11 +240,14 @@ def find_circle(contours, min_r, max_r, pred_xy=None):
     return best
 
 
-def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02):
+def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02, max_bounces=1):
     """Predict puck trajectory with wall bounces. Returns list of (x,y)."""
     points = [(int(x), int(y))]
     left, right = bounds['left'], w - bounds['right']
     top, bottom = bounds['top'], h - bounds['bottom']
+    
+    bounces = 0
+    
     for _ in range(int(max_t / dt)):
         x += vx * dt
         y += vy * dt
@@ -254,15 +257,21 @@ def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02):
             break
         elif x >= right:
             x, vx = right, -abs(vx) * TRAJECTORY_DAMPING
+            bounces += 1
             
         if y <= top:
             y, vy = top, abs(vy) * TRAJECTORY_DAMPING
+            bounces += 1
         elif y >= bottom:
             y, vy = bottom, -abs(vy) * TRAJECTORY_DAMPING
+            bounces += 1
             
         points.append((int(x), int(y)))
-        if vx * vx + vy * vy < 25:
+        
+        # Stop predicting if the puck slows down too much OR exceeds our bounce limit
+        if vx * vx + vy * vy < 25 or bounces > max_bounces:
             break
+            
     return points
 
 
