@@ -13,7 +13,7 @@
 // #define MATRIX_SCAN_ROWS    16
 
 // #define WINNING_SCORE       7
-// #define GOAL_COOLDOWN_TICKS 50 
+// #define GOAL_COOLDOWN_TICKS 500 // Scaled up for 10kHz TIM14 
 
 // #define MODE_BOT            0
 // #define MODE_PLAYER         1
@@ -30,8 +30,8 @@
 // #define NUM_HEIGHT 14
 // #define NUM_WIDTH 10
 
-// #define TEST_MODE 1
-// #define WATCHDOG_MAX 50000 
+// #define TEST_MODE 0     // Turns the safety watchdog back on
+// #define WATCHDOG_MAX 25 // 25 loops * 16ms = ~400ms timeout
 // #define SYSTEM_CLOCK 48000000 
 
 // //===========================================================================
@@ -47,52 +47,103 @@
 // volatile uint8_t canvas[MATRIX_SCAN_ROWS][MATRIX_WIDTH];
 // static volatile uint8_t current_display_row = 0;
 
+// // UART / Motor State Variables
+// volatile uint8_t pending_motor = 0;
+// volatile uint8_t pending_dir = 0;
+// volatile uint32_t watchdog_timer = 0;
+
 // //===========================================================================
-// // STABILIZED MATRIX SCAN
+// // FORWARD DECLARATIONS
 // //===========================================================================
+// void set_motor_a(uint32_t percent, uint8_t is_rev);
+// void set_motor_b(uint32_t percent, uint8_t is_rev);
+
+// //===========================================================================
+// // SYSTEM CLOCK (48 MHz)
+// //===========================================================================
+
+// void init_clock(void) {
+//     FLASH->ACR |= FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY;
+//     RCC->CFGR &= ~(RCC_CFGR_PLLMUL | RCC_CFGR_PLLSRC);
+//     RCC->CFGR |= RCC_CFGR_PLLMUL12;
+//     RCC->CR |= RCC_CR_PLLON;
+//     while (!(RCC->CR & RCC_CR_PLLRDY)); 
+//     RCC->CFGR |= RCC_CFGR_SW_PLL;
+//     while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL); 
+// }
+
+// //===========================================================================
+// // TRUE HUB75 MATRIX SCAN (64-Pin Layout)
+// //===========================================================================
+// // Data: PA4(R1), PA5(G1), PA6(B1), PA7(R2), PC4(G2), PC5(B2)
+// // Control: PB12(CLK), PB13(LAT), PB14(OE)
+// // Address: PB0(A), PB1(B), PB10(C), PB11(D)
 
 // static inline void Matrix_Scan(uint8_t row) {
-//     // 1. HARD BLANKING: OE HIGH (PB3)
-//     GPIOB->BSRR = (1U << 3); 
-//     for(volatile int i = 0; i < 30; i++); 
-
-//     // 2. SHIFT DATA: (CLK on PB6)
+//     // 1. SHIFT DATA IN BACKGROUND
 //     for (int col = 0; col < 32; col++) {
 //         uint8_t p = canvas[row][col];
         
 //         GPIOA->BSRR = ((p & 0xF) << 4) | ((~(p & 0xF) & 0xF) << 20);
 //         GPIOC->BSRR = ((p & 0x30)) | ((~(p & 0x30) & 0x30) << 16);
 
-//         // SLOW CLOCK: Stops the horizontal smearing
-//         for(volatile int i = 0; i < 5; i++); 
-//         GPIOB->BSRR = (1U << 6); // CLK HIGH
-//         for(volatile int i = 0; i < 15; i++); 
-//         GPIOB->BRR  = (1U << 6); // CLK LOW
+//         // Clock Pulse (PB12)
+//         GPIOB->BSRR = (1U << 12); 
+//         GPIOB->BRR  = (1U << 12); 
 //     }
 
-//     // 3. ADDRESS UPDATE: A(PB0), B(PB1), C(PB10), D(PB7)
-//     uint32_t b_bits = 0;
-//     if (row & 0x01) b_bits |= (1U << 0);
-//     if (row & 0x02) b_bits |= (1U << 1);
-//     if (row & 0x04) b_bits |= (1U << 10);
-//     if (row & 0x08) b_bits |= (1U << 7); // D on PB7
-    
-//     GPIOB->BRR = (1U << 0) | (1U << 1) | (1U << 10) | (1U << 7);
-//     GPIOB->BSRR = b_bits;
+//     // 2. BLANK SCREEN: OE HIGH (PB14)
+//     GPIOB->BSRR = (1U << 14); 
 
-//     // Address Settle Time
-//     for(volatile int i = 0; i < 15; i++); 
+//     // 3. LATCH DATA: LAT HIGH then LOW (PB13)
+//     GPIOB->BSRR = (1U << 13);
+//     for(volatile int i = 0; i < 2; i++); 
+//     GPIOB->BRR  = (1U << 13);
 
-//     // 4. DISPLAY ENABLE: OE LOW (PB3)
-//     GPIOB->BRR = (1U << 3);
+//     // 4. UPDATE ADDRESS: A:PB0, B:PB1, C:PB10, D:PB11
+//     uint32_t b_set = 0;
+//     if (row & 0x01) b_set |= (1U << 0);
+//     if (row & 0x02) b_set |= (1U << 1);
+//     if (row & 0x04) b_set |= (1U << 10);
+//     if (row & 0x08) b_set |= (1U << 11);
     
-//     // 5. ROW DWELL TIME (Brightness control & Flicker reduction)
-//     for(volatile int i = 0; i < 200; i++); 
+//     GPIOB->BRR = (1U << 0) | (1U << 1) | (1U << 10) | (1U << 11);
+//     GPIOB->BSRR = b_set;
+
+//     // 5. DISPLAY ENABLE: OE LOW (PB14)
+//     GPIOB->BRR = (1U << 14);
+    
+//     // 6. ROW DWELL TIME (Brightness)
+//     for(volatile int i = 0; i < 400; i++); 
 // }
 
 // //===========================================================================
-// // HELPER FUNCTIONS (The "Hijacked" Delay)
+// // HELPER FUNCTIONS (UART Polling & Hijacked Delay)
 // //===========================================================================
+
+// void USART3_8_IRQHandler(void) {
+//     // 1. Clear Overrun Error (ORE) safely
+//     if (USART5->ISR & USART_ISR_ORE) {
+//         USART5->ICR |= USART_ICR_ORECF;
+//     }
+
+//     // 2. Read incoming motor commands instantly
+//     if (USART5->ISR & USART_ISR_RXNE) {
+//         uint8_t rx = USART5->RDR;
+//         if (rx & 0x80) { 
+//             pending_motor = (rx >> 6) & 0x01;
+//             pending_dir   = (rx >> 5) & 0x01;
+//         } else { 
+//             uint8_t percent = rx & 0x7F; 
+//             if (percent <= 100) { 
+//                 if (pending_motor == 0) set_motor_a(percent, pending_dir);
+//                 else                    set_motor_b(percent, pending_dir);
+                
+//                 if (TEST_MODE == 0) watchdog_timer = 0;
+//             }
+//         }
+//     }
+// }
 
 // void delay_ms(uint32_t ms) {
 //     for (uint32_t i = 0; i < ms; i++) {
@@ -100,7 +151,6 @@
 //         SysTick->VAL = 0;
 //         SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
         
-//         // THE MAGIC: Constantly scan the matrix while waiting!
 //         while (!(SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk)) {
 //             Matrix_Scan(current_display_row);
 //             current_display_row = (current_display_row + 1) & 0x0F;
@@ -111,10 +161,6 @@
 
 // void small_delay(void) {
 //     for(volatile int i=0; i<15; i++);
-// }
-
-// void enable_ports(void) {
-//     RCC->AHBENR |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIODEN;
 // }
 
 // //===========================================================================
@@ -138,7 +184,7 @@
 // }
 
 // //===========================================================================
-// // OLED PINS & SPI
+// // OLED PINS & SPI (SEH1602A 3V)
 // //===========================================================================
 
 // void init_oled_pins(void) {
@@ -209,49 +255,46 @@
 // //===========================================================================
 
 // void init_controls(void) {
-//     GPIOA->MODER &= ~(GPIO_MODER_MODER0);
-//     GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR0);
-//     GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR0_1);
-
+//     // PC2 Input (UI Select)
 //     GPIOC->MODER &= ~(GPIO_MODER_MODER2);
 //     GPIOC->PUPDR &= ~(GPIO_PUPDR_PUPDR2);
 //     GPIOC->PUPDR |= (GPIO_PUPDR_PUPDR2_0);
 // }
 
 // void init_sensors(void) {
+//     // PA11 (Red), PA12 (Blue)
 //     GPIOA->MODER &= ~(GPIO_MODER_MODER11 | GPIO_MODER_MODER12);
 //     GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR11 | GPIO_PUPDR_PUPDR12);
-//     GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR11_1 | GPIO_PUPDR_PUPDR12_1);
+//     GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR11_0 | GPIO_PUPDR_PUPDR12_0); // Pull-ups
 // }
 
 // void init_matrix_gpio(void) {
-//     // DATA: PA4-7, PC4-5
+//     // DATA PA4-7
 //     GPIOA->MODER &= ~(0xFF00);
-//     GPIOA->MODER |= 0x5500; 
+//     GPIOA->MODER |= 0x5500;
+    
+//     // DATA PC4-5
 //     GPIOC->MODER &= ~(0xF00);
 //     GPIOC->MODER |= 0x500;
-    
-//     // CONTROL & ADDR: PB0(A), PB1(B), PB3(OE), PB6(CLK), PB7(D), PB10(C)
-//     GPIOB->MODER &= ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER1 | GPIO_MODER_MODER3 | 
-//                       GPIO_MODER_MODER6 | GPIO_MODER_MODER7 | GPIO_MODER_MODER10);
-//     GPIOB->MODER |= (GPIO_MODER_MODER0_0 | GPIO_MODER_MODER1_0 | GPIO_MODER_MODER3_0 | 
-//                      GPIO_MODER_MODER6_0 | GPIO_MODER_MODER7_0 | GPIO_MODER_MODER10_0);
 
-//     // SLEW RATE: LOW SPEED
-//     GPIOA->OSPEEDR &= ~(0xFFFFFFFF);
-//     GPIOB->OSPEEDR &= ~(0xFFFFFFFF);
-//     GPIOC->OSPEEDR &= ~(0xFFFFFFFF);
-    
-//     GPIOB->BSRR = (1U << 3); // OE HIGH
-//     GPIOB->BRR  = (1U << 6); // CLK LOW
+//     // PORT B: ADDR A(0), B(1), C(10), D(11), CLK(12), LAT(13), OE(14)
+//     GPIOB->MODER &= ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER1 | GPIO_MODER_MODER10 | 
+//                       GPIO_MODER_MODER11 | GPIO_MODER_MODER12 | GPIO_MODER_MODER13 | GPIO_MODER_MODER14);
+//     GPIOB->MODER |= (GPIO_MODER_MODER0_0 | GPIO_MODER_MODER1_0 | GPIO_MODER_MODER10_0 | 
+//                      GPIO_MODER_MODER11_0 | GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0 | GPIO_MODER_MODER14_0);
+
+//     // Start Safe
+//     GPIOB->BSRR = (1U << 14); // Screen Blanked
+//     GPIOB->BRR  = (1U << 13); // Latch Low
+//     GPIOB->BRR  = (1U << 12); // Clock Low
 // }
 
 // void setup_tim14(void) {
 //     RCC->APB1ENR |= RCC_APB1ENR_TIM14EN;
-//     TIM14->PSC = 4800 - 1; 
-//     TIM14->ARR = 100 - 1; 
+//     TIM14->PSC = 4800 - 1; // 10kHz tick for fast sensor response
+//     TIM14->ARR = 10 - 1;   // Fire interrupt every 1ms
 //     TIM14->DIER |= TIM_DIER_UIE;
-//     NVIC_SetPriority(TIM14_IRQn, 2);
+//     NVIC_SetPriority(TIM14_IRQn, 1);
 //     NVIC_EnableIRQ(TIM14_IRQn);
 //     TIM14->CR1 |= TIM_CR1_CEN;
 // }
@@ -262,35 +305,50 @@
 
 // void init_uart(void) {
 //     RCC->APB1ENR |= RCC_APB1ENR_USART5EN; 
+
+//     // Setup PD2 as RX (Alternate Function 2)
 //     GPIOD->MODER &= ~GPIO_MODER_MODER2;
 //     GPIOD->MODER |= GPIO_MODER_MODER2_1;        
 //     GPIOD->AFR[0] &= ~(0xF << (2 * 4));         
 //     GPIOD->AFR[0] |= (2 << (2 * 4));            
+
+//     // Setup PC12 as TX (Alternate Function 2)
 //     GPIOC->MODER &= ~GPIO_MODER_MODER12;
 //     GPIOC->MODER |= GPIO_MODER_MODER12_1;       
 //     GPIOC->AFR[1] &= ~(0xF << ((12 - 8) * 4));  
 //     GPIOC->AFR[1] |= (2 << ((12 - 8) * 4));     
-//     USART5->BRR = 48000000 / 115200;            
-//     USART5->CR1 = USART_CR1_RE | USART_CR1_TE | USART_CR1_UE; 
+
+//     USART5->BRR = SYSTEM_CLOCK / 115200;            
+    
+//     // Enable Receiver, Transmitter, UART, AND RX Interrupts
+//     USART5->CR1 = USART_CR1_RE | USART_CR1_TE | USART_CR1_UE | USART_CR1_RXNEIE; 
+    
+//     // Enable the Interrupt in the NVIC (USART5 shares IRQ line 3-8 on STM32F0)
+//     NVIC_EnableIRQ(USART3_8_IRQn);
+//     NVIC_SetPriority(USART3_8_IRQn, 0); // Highest priority to never miss a motor command
 // }
 
 // void init_motors(void) {
 //     RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
 //     RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
     
+//     // Motor A: PA8 (DIR), PC9 (ENA), PA9 (PUL)
 //     GPIOA->MODER &= ~((3 << 16) | (3 << 18));
 //     GPIOA->MODER |= (1 << 16) | (2 << 18); 
 //     GPIOA->AFR[1] |= (2 << 4);     
 //     GPIOC->MODER &= ~(3 << 18);
 //     GPIOC->MODER |= (1 << 18);     
-//     GPIOA->BSRR = (1 << 8);        
-//     GPIOC->BRR  = (1 << 9);        
+    
+//     GPIOA->BSRR = (1 << 8); // DIR High
+//     GPIOC->BRR  = (1 << 9); // ENA Low (Enabled)
 
+//     // Motor B: PC7 (DIR), PC6 (ENA), PC8 (PUL)
 //     GPIOC->MODER &= ~((3 << 12) | (3 << 14) | (3 << 16));
 //     GPIOC->MODER |= (1 << 12) | (1 << 14) | (2 << 16);
 //     GPIOC->AFR[1] &= ~(0xF << 0);  
-//     GPIOC->BSRR = (1 << 7);        
-//     GPIOC->BRR  = (1 << 6);        
+    
+//     GPIOC->BSRR = (1 << 7); // DIR High
+//     GPIOC->BRR  = (1 << 6); // ENA Low (Enabled)
 
 //     TIM1->PSC = 0;
 //     TIM1->CCMR1 |= (6 << TIM_CCMR1_OC2M_Pos) | TIM_CCMR1_OC1PE;
@@ -310,6 +368,7 @@
 //         TIM1->EGR |= TIM_EGR_UG;
 //         return;
 //     }
+//     GPIOC->BRR = (1 << 9); // Keep ENA Low
 //     if (is_rev) GPIOA->BRR = (1 << 8);  
 //     else        GPIOA->BSRR = (1 << 8); 
 
@@ -326,6 +385,7 @@
 //         TIM3->EGR |= TIM_EGR_UG;
 //         return;
 //     }
+//     GPIOC->BRR = (1 << 6); // Keep ENA Low
 //     if (is_rev) GPIOC->BRR = (1 << 7);  
 //     else        GPIOC->BSRR = (1 << 7); 
 
@@ -354,8 +414,6 @@
 // void SetPixel(int x, int y, uint8_t color) {
 //     if (x < 0 || x >= MATRIX_WIDTH || y < 0 || y >= MATRIX_HEIGHT) return;
 //     uint8_t row = y % 16;
-    
-//     // We removed TIM6, so no IRQ collision to worry about here!
 //     if (y < 16) canvas[row][x] = (canvas[row][x] & ~0x07) | (color & 0x07);
 //     else canvas[row][x] = (canvas[row][x] & ~0x38) | ((color & 0x07) << 3);
 // }
@@ -430,7 +488,7 @@
 // }
 
 // //===========================================================================
-// // TIM14 INTERRUPT (Sensors Only - Matrix completely removed from IRQ)
+// // TIM14 INTERRUPT (IR Sensors - Trigger on Exit)
 // //===========================================================================
 
 // void TIM14_IRQHandler(void) {
@@ -439,6 +497,16 @@
 
 //         if (!game_active) return;
 
+//         // IR Sensors are Active Low: 0V means beam is broken
+//         bool player_is_broken = (GPIOA->IDR & (1 << 12)) == 0; 
+//         bool bot_is_broken    = (GPIOA->IDR & (1 << 11)) == 0; 
+
+//         static bool player_was_broken = false;
+//         static bool bot_was_broken = false;
+
+//         if (player_is_broken) player_was_broken = true;
+//         if (bot_is_broken)    bot_was_broken = true;
+
 //         if (sensor_cooldown > 0) {
 //             sensor_cooldown--;
 //             if (sensor_cooldown == 0) send_state_byte(); 
@@ -446,12 +514,17 @@
 //         }
 
 //         bool scored = false;
-//         if (GPIOA->IDR & (1 << 12)) {
+        
+//         // Wait until the puck LEAVES the beam to score
+//         if (player_was_broken && !player_is_broken) {
 //             player_score++;
 //             scored = true;
-//         } else if (GPIOA->IDR & (1 << 11)) {
+//             player_was_broken = false;
+//         } 
+//         else if (bot_was_broken && !bot_is_broken) {
 //             bot_score++;
 //             scored = true;
+//             bot_was_broken = false;
 //         }
 
 //         if (scored) {
@@ -469,10 +542,14 @@
 // //===========================================================================
 
 // int main(void) {
-//     enable_ports(); 
+//     // 1. Boot up to 48 MHz 
+//     init_clock(); 
     
-//     // Hardware Setup
-//     init_matrix_gpio(); // <--- This now correctly initializes PB3, PB6, PB7
+//     // Enable GPIO Ports
+//     RCC->AHBENR |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIODEN;
+
+//     // Hardware Initialization
+//     init_matrix_gpio(); 
 //     setup_tim14();
 //     init_sensors();      
 //     init_controls();  
@@ -480,21 +557,13 @@
 //     init_uart();
 //     init_motors();
 
-//     // OLED Initialization
 //     init_oled_pins();
 //     spi1_init_oled();
     
-//     // System Variables
-//     uint8_t pending_motor = 0;
-//     uint8_t pending_dir = 0;
-//     uint32_t watchdog_timer = 0;
-    
-//     // UI Variables
 //     uint8_t ui_state = UI_STATE_SPLASH;
 //     uint8_t selected_mode = MODE_BOT; 
 //     uint8_t oled_needs_update = 1;
     
-//     // EDGE DETECTION
 //     uint8_t pc2_last_state = 1; 
 //     uint32_t pc2_debounce = 0; 
     
@@ -502,21 +571,8 @@
 
 //     while (1) {
 //         // --- 1. RX: Motor Control ---
-//         if (USART5->ISR & USART_ISR_RXNE) {
-//             uint8_t rx = USART5->RDR;
-//             if (rx & 0x80) { 
-//                 pending_motor = (rx >> 6) & 0x01;
-//                 pending_dir   = (rx >> 5) & 0x01;
-//             } else { 
-//                 uint8_t percent = rx & 0x7F; 
-//                 if (percent <= 100) { 
-//                     if (pending_motor == 0) set_motor_a(percent, pending_dir);
-//                     else                    set_motor_b(percent, pending_dir);
-//                     if (TEST_MODE == 0) watchdog_timer = 0;
-//                 }
-//             }
-//         } 
-//         else if (TEST_MODE == 0) {
+        
+//         if (TEST_MODE == 0) {
 //             watchdog_timer++;
 //             if (watchdog_timer > WATCHDOG_MAX) {
 //                 set_motor_a(0, 0);
@@ -611,10 +667,8 @@
 //             }
 //         }
         
-//         // --- THE ENGINE OF THE DISPLAY ---
-//         // Instead of doing nothing for 16ms, this hijacked delay continuously
-// //         // calls `Matrix_Scan()` thousands of times, giving you the rock-solid
-// //         // stability of `led_test.c` without breaking your game loop!
-// //         delay_ms(10); 
-// //     }
-// // }
+//         // --- 5. GAME ENGINE LOOP ---
+//         // This powers the Matrix. Instead of freezing, it repaints the screen rapidly.
+//         delay_ms(16); 
+//     }
+// }
