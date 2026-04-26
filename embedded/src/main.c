@@ -1,620 +1,338 @@
-// #include "stm32f0xx.h"
-// #include <stdint.h>
-// #include <stdbool.h>
-// #include <stdio.h>
-// #include <stdlib.h>
+#include "main.h"
+#include "sprites.h"
 
-// //===========================================================================
-// // DEFINITIONS
-// //===========================================================================
+//===========================================================================
+// GLOBAL VARIABLES
+//===========================================================================
+volatile int player_score = 0;
+volatile int bot_score = 0;
+volatile int sensor_cooldown = 0;
+volatile bool game_active = false;
+volatile uint8_t game_mode = MODE_BOT; 
+volatile uint32_t anim_tick = 0; 
 
-// #define MATRIX_HEIGHT       32
-// #define MATRIX_WIDTH        32
-// #define MATRIX_SCAN_ROWS    16
+volatile uint8_t pending_motor = 0;
+volatile uint8_t pending_dir = 0;
+volatile uint32_t watchdog_timer = 0;
 
-// #define WINNING_SCORE       7
-// #define GOAL_COOLDOWN_TICKS 50 
+#define NUM_FW 5
+typedef struct {
+    int x, y, frame, color, max_r;
+} Firework;
+Firework fws[NUM_FW] = {0};
 
-// #define MODE_BOT            0
-// #define MODE_PLAYER         1
+//===========================================================================
+// GAME HELPERS & INTERRUPTS
+//===========================================================================
 
-// #define UI_STATE_SPLASH     0
-// #define UI_STATE_MENU       1
-// #define UI_STATE_PLAY       2
+void send_state_byte(void) {
+    uint8_t state_byte = 0;
+    if (game_active && (sensor_cooldown == 0)) state_byte |= (1 << 7);
+    if (game_mode == MODE_PLAYER) state_byte |= (1 << 6);
+    state_byte |= ((player_score & 0x07) << 3);
+    state_byte |= (bot_score & 0x07);
+    while (!(USART5->ISR & USART_ISR_TXE)); 
+    USART5->TDR = state_byte;
+}
 
-// #define COLOR_RED   1
-// #define COLOR_BLUE  4
+void USART3_8_IRQHandler(void) {
+    if (USART5->ISR & USART_ISR_ORE) USART5->ICR |= USART_ICR_ORECF;
 
-// #define CHAR_HEIGHT 5
-// #define CHAR_WIDTH 4
-// #define NUM_HEIGHT 14
-// #define NUM_WIDTH 10
+    if (USART5->ISR & USART_ISR_RXNE) {
+        uint8_t rx = USART5->RDR;
+        if (rx & 0x80) { 
+            pending_motor = (rx >> 6) & 0x01;
+            pending_dir   = (rx >> 5) & 0x01;
+        } else { 
+            uint8_t percent = rx & 0x7F; 
+            if (percent <= 100) { 
+                if (pending_motor == 0) set_motor_a(percent, pending_dir);
+                else                    set_motor_b(percent, pending_dir);
+                
+                if (TEST_MODE == 0) watchdog_timer = 0;
+            }
+        }
+    }
+}
 
-// #define TEST_MODE 1
-// #define WATCHDOG_MAX 50000 
-// #define SYSTEM_CLOCK 48000000 
+void TIM14_IRQHandler(void) {
+    if (TIM14->SR & TIM_SR_UIF) {
+        TIM14->SR &= ~TIM_SR_UIF;
 
-// //===========================================================================
-// // GLOBAL VARIABLES
-// //===========================================================================
+        if (!game_active) return;
 
-// volatile int player_score = 0;
-// volatile int bot_score = 0;
-// volatile int sensor_cooldown = 0;
-// volatile bool game_active = false;
-// volatile uint8_t game_mode = MODE_BOT; 
+        static uint16_t p_db = 0xFFFF;
+        static uint16_t b_db = 0xFFFF;
 
-// volatile uint8_t canvas[MATRIX_SCAN_ROWS][MATRIX_WIDTH];
-// static volatile uint8_t current_display_row = 0;
+        if (sensor_cooldown > 0) {
+            sensor_cooldown--;
+            p_db = 0xFFFF; 
+            b_db = 0xFFFF;
+            if (sensor_cooldown == 0) send_state_byte(); 
+            return;
+        }
 
-// //===========================================================================
-// // STABILIZED MATRIX SCAN
-// //===========================================================================
+        uint8_t p_read = (GPIOA->IDR & (1 << 12)) ? 1 : 0; 
+        uint8_t b_read = (GPIOA->IDR & (1 << 11)) ? 1 : 0; 
 
-// static inline void Matrix_Scan(uint8_t row) {
-//     // 1. HARD BLANKING: OE HIGH (PB3)
-//     GPIOB->BSRR = (1U << 3); 
-//     for(volatile int i = 0; i < 30; i++); 
+        p_db = (p_db << 1) | p_read;
+        b_db = (b_db << 1) | b_read;
 
-//     // 2. SHIFT DATA: (CLK on PB6)
-//     for (int col = 0; col < 32; col++) {
-//         uint8_t p = canvas[row][col];
+        bool scored = false;
         
-//         GPIOA->BSRR = ((p & 0xF) << 4) | ((~(p & 0xF) & 0xF) << 20);
-//         GPIOC->BSRR = ((p & 0x30)) | ((~(p & 0x30) & 0x30) << 16);
+        if ((p_db & 0x07FF) == 0x0400) { player_score++; scored = true; } 
+        else if ((b_db & 0x07FF) == 0x0400) { bot_score++; scored = true; }
 
-//         // SLOW CLOCK: Stops the horizontal smearing
-//         for(volatile int i = 0; i < 5; i++); 
-//         GPIOB->BSRR = (1U << 6); // CLK HIGH
-//         for(volatile int i = 0; i < 15; i++); 
-//         GPIOB->BRR  = (1U << 6); // CLK LOW
-//     }
+        if (scored) {
+            sensor_cooldown = GOAL_COOLDOWN_TICKS;
+            p_db = 0xFFFF; b_db = 0xFFFF;
 
-//     // 3. ADDRESS UPDATE: A(PB0), B(PB1), C(PB10), D(PB7)
-//     uint32_t b_bits = 0;
-//     if (row & 0x01) b_bits |= (1U << 0);
-//     if (row & 0x02) b_bits |= (1U << 1);
-//     if (row & 0x04) b_bits |= (1U << 10);
-//     if (row & 0x08) b_bits |= (1U << 7); // D on PB7
+            if (player_score >= WINNING_SCORE || bot_score >= WINNING_SCORE) {
+                game_active = false;
+            }
+            send_state_byte(); 
+        }
+    }
+}
+
+int get_bubble_offset(int index) {
+    int wave_pos = (anim_tick / 4) % 40; 
+    int dist = ABS(wave_pos - index);
+    if (dist == 0) return -2;
+    if (dist == 1) return -1;
+    return 0;
+}
+
+void start_screen(void) {
+    int ya = 6;
+    DrawSprite5(1,  ya + get_bubble_offset(0), s5_A, COLOR_RED);
+    DrawSprite5(7,  ya + get_bubble_offset(1), s5_U, COLOR_RED);
+    DrawSprite5(13, ya + get_bubble_offset(2), s5_T, COLOR_RED);
+    DrawSprite5(19, ya + get_bubble_offset(3), s5_O, COLOR_RED);
+    DrawSprite5(25, ya + get_bubble_offset(4), s5_N, COLOR_RED);
     
-//     GPIOB->BRR = (1U << 0) | (1U << 1) | (1U << 10) | (1U << 7);
-//     GPIOB->BSRR = b_bits;
+    int yb = 18;
+    DrawSprite5(14, yb + get_bubble_offset(5), s5_A, COLOR_BLUE);
+    DrawSprite5(20, yb + get_bubble_offset(6), s5_I, COLOR_BLUE);
+    DrawSprite5(26, yb + get_bubble_offset(7), s5_R, COLOR_BLUE);  
+}
 
-//     // Address Settle Time
-//     for(volatile int i = 0; i < 15; i++); 
-
-//     // 4. DISPLAY ENABLE: OE LOW (PB3)
-//     GPIOB->BRR = (1U << 3);
+void draw_zipper_border(uint8_t color) {
+    int p = 0;
+    int offset = (anim_tick / 10) % 2; 
     
-//     // 5. ROW DWELL TIME (Brightness control & Flicker reduction)
-//     for(volatile int i = 0; i < 200; i++); 
-// }
+    for (int x = 1; x <= 30; x++) { p++; SetPixel(x, ((p + offset) % 2 == 0) ? 1 : 2, color); }
+    for (int y = 2; y <= 30; y++) { p++; SetPixel(((p + offset) % 2 == 0) ? 30 : 29, y, color); }
+    for (int x = 29; x >= 1; x--) { p++; SetPixel(x, ((p + offset) % 2 == 0) ? 30 : 29, color); }
+    for (int y = 29; y >= 2; y--) { p++; SetPixel(((p + offset) % 2 == 0) ? 1 : 2, y, color); }
+}
 
-// //===========================================================================
-// // HELPER FUNCTIONS (The "Hijacked" Delay)
-// //===========================================================================
-
-// void delay_ms(uint32_t ms) {
-//     for (uint32_t i = 0; i < ms; i++) {
-//         SysTick->LOAD = 48000 - 1;                  
-//         SysTick->VAL = 0;
-//         SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_ENABLE_Msk;
-        
-//         // THE MAGIC: Constantly scan the matrix while waiting!
-//         while (!(SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk)) {
-//             Matrix_Scan(current_display_row);
-//             current_display_row = (current_display_row + 1) & 0x0F;
-//         }
-//         SysTick->CTRL = 0;  
-//     }
-// }
-
-// void small_delay(void) {
-//     for(volatile int i=0; i<15; i++);
-// }
-
-// void enable_ports(void) {
-//     RCC->AHBENR |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIODEN;
-// }
-
-// //===========================================================================
-// // ADC (Joystick VRY -> PC0)
-// //===========================================================================
-
-// void init_adc(void) {
-//     RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
-//     GPIOC->MODER |= GPIO_MODER_MODER0_0 | GPIO_MODER_MODER0_1; 
-//     RCC->CR2 |= RCC_CR2_HSI14ON;
-//     while ((RCC->CR2 & RCC_CR2_HSI14RDY) == 0);
-//     ADC1->CR |= ADC_CR_ADEN;
-//     while ((ADC1->ISR & ADC_ISR_ADRDY) == 0);
-//     ADC1->CHSELR = ADC_CHSELR_CHSEL10;
-// }
-
-// uint16_t read_adc(void) {
-//     ADC1->CR |= ADC_CR_ADSTART;
-//     while ((ADC1->ISR & ADC_ISR_EOC) == 0);
-//     return ADC1->DR;
-// }
-
-// //===========================================================================
-// // OLED PINS & SPI
-// //===========================================================================
-
-// void init_oled_pins(void) {
-//     GPIOA->MODER &= ~(GPIO_MODER_MODER15);
-//     GPIOA->MODER |= (GPIO_MODER_MODER15_0);
-//     GPIOC->MODER &= ~(GPIO_MODER_MODER10 | GPIO_MODER_MODER11);
-//     GPIOC->MODER |= (GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0);
-//     GPIOC->BSRR = (1U << 11); 
-//     GPIOA->BRR = (1U << 15);  
-// }
-
-// void spi_send_10bit(uint16_t data) {
-//     GPIOC->BRR = (1U << 11); 
-//     small_delay();
-//     for (int i = 9; i >= 0; i--) {
-//         if ((data >> i) & 1) GPIOC->BSRR = (1U << 10);
-//         else                 GPIOC->BRR = (1U << 10);
-//         small_delay();
-//         GPIOA->BSRR = (1U << 15); 
-//         small_delay();
-//         GPIOA->BRR = (1U << 15);  
-//         small_delay();
-//     }
-//     GPIOC->BSRR = (1U << 11); 
-//     small_delay();
-// }
-
-// void spi_cmd(unsigned int data) { 
-//     spi_send_10bit(data & 0xFF); 
-//     delay_ms(1);
-// }
-
-// void spi_data(unsigned int data) { 
-//     spi_send_10bit(data | 0x200); 
-//     delay_ms(1);
-// }
-
-// void spi1_init_oled(void) {
-//     delay_ms(100); 
-//     spi_cmd(0x38); 
-//     spi_cmd(0x08); 
-//     spi_cmd(0x17); 
-//     spi_cmd(0x01); 
-//     delay_ms(5);   
-//     spi_cmd(0x06); 
-//     spi_cmd(0x02); 
-//     spi_cmd(0x0C); 
-// }
-
-// void spi1_display1(const char *string) {
-//     spi_cmd(0x02); 
-//     while(*string != '\0') {
-//         spi_data(*string);
-//         string++;
-//     }
-// }
-
-// void spi1_display2(const char *string) {
-//     spi_cmd(0xC0); 
-//     while(*string != '\0') {
-//         spi_data(*string);
-//         string++;
-//     }
-// }
-
-// //===========================================================================
-// // HARDWARE SETUP: CONTROLS & TIMERS
-// //===========================================================================
-
-// void init_controls(void) {
-//     GPIOA->MODER &= ~(GPIO_MODER_MODER0);
-//     GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR0);
-//     GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR0_1);
-
-//     GPIOC->MODER &= ~(GPIO_MODER_MODER2);
-//     GPIOC->PUPDR &= ~(GPIO_PUPDR_PUPDR2);
-//     GPIOC->PUPDR |= (GPIO_PUPDR_PUPDR2_0);
-// }
-
-// void init_sensors(void) {
-//     GPIOA->MODER &= ~(GPIO_MODER_MODER11 | GPIO_MODER_MODER12);
-//     GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR11 | GPIO_PUPDR_PUPDR12);
-//     GPIOA->PUPDR |= (GPIO_PUPDR_PUPDR11_1 | GPIO_PUPDR_PUPDR12_1);
-// }
-
-// void init_matrix_gpio(void) {
-//     // DATA: PA4-7, PC4-5
-//     GPIOA->MODER &= ~(0xFF00);
-//     GPIOA->MODER |= 0x5500; 
-//     GPIOC->MODER &= ~(0xF00);
-//     GPIOC->MODER |= 0x500;
-    
-//     // CONTROL & ADDR: PB0(A), PB1(B), PB3(OE), PB6(CLK), PB7(D), PB10(C)
-//     GPIOB->MODER &= ~(GPIO_MODER_MODER0 | GPIO_MODER_MODER1 | GPIO_MODER_MODER3 | 
-//                       GPIO_MODER_MODER6 | GPIO_MODER_MODER7 | GPIO_MODER_MODER10);
-//     GPIOB->MODER |= (GPIO_MODER_MODER0_0 | GPIO_MODER_MODER1_0 | GPIO_MODER_MODER3_0 | 
-//                      GPIO_MODER_MODER6_0 | GPIO_MODER_MODER7_0 | GPIO_MODER_MODER10_0);
-
-//     // SLEW RATE: LOW SPEED
-//     GPIOA->OSPEEDR &= ~(0xFFFFFFFF);
-//     GPIOB->OSPEEDR &= ~(0xFFFFFFFF);
-//     GPIOC->OSPEEDR &= ~(0xFFFFFFFF);
-    
-//     GPIOB->BSRR = (1U << 3); // OE HIGH
-//     GPIOB->BRR  = (1U << 6); // CLK LOW
-// }
-
-// void setup_tim14(void) {
-//     RCC->APB1ENR |= RCC_APB1ENR_TIM14EN;
-//     TIM14->PSC = 4800 - 1; 
-//     TIM14->ARR = 100 - 1; 
-//     TIM14->DIER |= TIM_DIER_UIE;
-//     NVIC_SetPriority(TIM14_IRQn, 2);
-//     NVIC_EnableIRQ(TIM14_IRQn);
-//     TIM14->CR1 |= TIM_CR1_CEN;
-// }
-
-// //===========================================================================
-// // HARDWARE SETUP: MOTORS & UART
-// //===========================================================================
-
-// void init_uart(void) {
-//     RCC->APB1ENR |= RCC_APB1ENR_USART5EN; 
-//     GPIOD->MODER &= ~GPIO_MODER_MODER2;
-//     GPIOD->MODER |= GPIO_MODER_MODER2_1;        
-//     GPIOD->AFR[0] &= ~(0xF << (2 * 4));         
-//     GPIOD->AFR[0] |= (2 << (2 * 4));            
-//     GPIOC->MODER &= ~GPIO_MODER_MODER12;
-//     GPIOC->MODER |= GPIO_MODER_MODER12_1;       
-//     GPIOC->AFR[1] &= ~(0xF << ((12 - 8) * 4));  
-//     GPIOC->AFR[1] |= (2 << ((12 - 8) * 4));     
-//     USART5->BRR = 48000000 / 115200;            
-//     USART5->CR1 = USART_CR1_RE | USART_CR1_TE | USART_CR1_UE; 
-// }
-
-// void init_motors(void) {
-//     RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;
-//     RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-    
-//     GPIOA->MODER &= ~((3 << 16) | (3 << 18));
-//     GPIOA->MODER |= (1 << 16) | (2 << 18); 
-//     GPIOA->AFR[1] |= (2 << 4);     
-//     GPIOC->MODER &= ~(3 << 18);
-//     GPIOC->MODER |= (1 << 18);     
-//     GPIOA->BSRR = (1 << 8);        
-//     GPIOC->BRR  = (1 << 9);        
-
-//     GPIOC->MODER &= ~((3 << 12) | (3 << 14) | (3 << 16));
-//     GPIOC->MODER |= (1 << 12) | (1 << 14) | (2 << 16);
-//     GPIOC->AFR[1] &= ~(0xF << 0);  
-//     GPIOC->BSRR = (1 << 7);        
-//     GPIOC->BRR  = (1 << 6);        
-
-//     TIM1->PSC = 0;
-//     TIM1->CCMR1 |= (6 << TIM_CCMR1_OC2M_Pos) | TIM_CCMR1_OC1PE;
-//     TIM1->CCER  |= TIM_CCER_CC2E;
-//     TIM1->BDTR  |= TIM_BDTR_MOE;   
-//     TIM1->CR1   |= TIM_CR1_CEN;
-
-//     TIM3->PSC = 0;
-//     TIM3->CCMR2 |= (6 << TIM_CCMR2_OC3M_Pos) | TIM_CCMR2_OC3PE;
-//     TIM3->CCER  |= TIM_CCER_CC3E;  
-//     TIM3->CR1   |= TIM_CR1_CEN;
-// }
-
-// void set_motor_a(uint32_t percent, uint8_t is_rev) {
-//     if (percent == 0) {
-//         TIM1->CCR2 = 0; 
-//         TIM1->EGR |= TIM_EGR_UG;
-//         return;
-//     }
-//     if (is_rev) GPIOA->BRR = (1 << 8);  
-//     else        GPIOA->BSRR = (1 << 8); 
-
-//     uint32_t target_hz = percent * 2000; 
-//     uint32_t arr_val = (SYSTEM_CLOCK / target_hz) - 1;
-//     TIM1->ARR = arr_val;
-//     TIM1->CCR2 = (arr_val + 1) / 2; 
-//     TIM1->EGR |= TIM_EGR_UG; 
-// }
-
-// void set_motor_b(uint32_t percent, uint8_t is_rev) {
-//     if (percent == 0) {
-//         TIM3->CCR3 = 0; 
-//         TIM3->EGR |= TIM_EGR_UG;
-//         return;
-//     }
-//     if (is_rev) GPIOC->BRR = (1 << 7);  
-//     else        GPIOC->BSRR = (1 << 7); 
-
-//     uint32_t target_hz = percent * 2000; 
-//     uint32_t arr_val = (SYSTEM_CLOCK / target_hz) - 1;
-//     TIM3->ARR = arr_val;
-//     TIM3->CCR3 = (arr_val + 1) / 2; 
-//     TIM3->EGR |= TIM_EGR_UG; 
-// }
-
-// void send_state_byte(void) {
-//     uint8_t state_byte = 0;
-//     if (game_active && (sensor_cooldown == 0)) state_byte |= (1 << 7);
-//     if (game_mode == MODE_PLAYER) state_byte |= (1 << 6);
-//     state_byte |= ((player_score & 0x07) << 3);
-//     state_byte |= (bot_score & 0x07);
-
-//     while (!(USART5->ISR & USART_ISR_TXE)); 
-//     USART5->TDR = state_byte;
-// }
-
-// //===========================================================================
-// // GRAPHICS & SPRITES
-// //===========================================================================
-
-// void SetPixel(int x, int y, uint8_t color) {
-//     if (x < 0 || x >= MATRIX_WIDTH || y < 0 || y >= MATRIX_HEIGHT) return;
-//     uint8_t row = y % 16;
-    
-//     // We removed TIM6, so no IRQ collision to worry about here!
-//     if (y < 16) canvas[row][x] = (canvas[row][x] & ~0x07) | (color & 0x07);
-//     else canvas[row][x] = (canvas[row][x] & ~0x38) | ((color & 0x07) << 3);
-// }
-
-// void ClearScreen(void) {
-//     for (int r = 0; r < MATRIX_SCAN_ROWS; r++) {
-//         for (int c = 0; c < MATRIX_WIDTH; c++) canvas[r][c] = 0;
-//     }
-// }
-
-// void DrawSprite(int x, int y, int height, int width, const uint8_t sprite_data[][width], uint8_t color) {
-//     for (int r = 0; r < height; r++) {
-//         for (int c = 0; c < width; c++) {
-//             if (sprite_data[r][c] != 0) SetPixel(x + c, y + r, color);
-//         }
-//     }
-// }
-
-// const uint8_t sprite_A[CHAR_HEIGHT][CHAR_WIDTH] = { {0, 7, 7, 0}, {7, 0, 0, 7}, {7, 7, 7, 7}, {7, 0, 0, 7}, {7, 0, 0, 7}};
-// const uint8_t sprite_U[CHAR_HEIGHT][CHAR_WIDTH] = { {7, 0, 0, 7}, {7, 0, 0, 7}, {7, 0, 0, 7}, {7, 0, 0, 7}, {0, 7, 7, 0}};
-// const uint8_t sprite_T[CHAR_HEIGHT][CHAR_WIDTH] = { {7, 7, 7, 7}, {0, 7, 7, 0}, {0, 7, 7, 0}, {0, 7, 7, 0}, {0, 7, 7, 0}};
-// const uint8_t sprite_O[CHAR_HEIGHT][CHAR_WIDTH] = { {0, 7, 7, 0}, {7, 0, 0, 7}, {7, 0, 0, 7}, {7, 0, 0, 7}, {0, 7, 7, 0}};
-// const uint8_t sprite_N[CHAR_HEIGHT][CHAR_WIDTH] = { {7, 7, 0, 7}, {7, 7, 0, 7}, {7, 7, 7, 7}, {7, 0, 7, 7}, {7, 0, 0, 7}};
-// const uint8_t sprite_I[CHAR_HEIGHT][CHAR_WIDTH] = { {7, 7, 7, 7}, {0, 7, 7, 0}, {0, 7, 7, 0}, {0, 7, 7, 0}, {7, 7, 7, 7}};
-// const uint8_t sprite_R[CHAR_HEIGHT][CHAR_WIDTH] = { {7, 7, 7, 0}, {7, 0, 0, 7}, {7, 7, 7, 0}, {7, 0, 7, 0}, {7, 0, 0, 7}};
-
-// const uint8_t sprite_0[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_1[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,7,7,0,0,0,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_2[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_3[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_4[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_5[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_6[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_7[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_8[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,0,0}};
-// const uint8_t sprite_9[NUM_HEIGHT][NUM_WIDTH] = {{0,0,0,0,0,0,0,0,0,0},{0,7,7,7,7,7,7,7,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,0,0,0,0,0,0,0,7,0},{0,7,7,7,7,7,7,7,7,0},{0,0,0,0,0,0,0,0,0,0}};
-
-// const uint8_t (*sprite_numbers[])[NUM_WIDTH] = {
-//     sprite_0, sprite_1, sprite_2, sprite_3, sprite_4, sprite_5, sprite_6, sprite_7, sprite_8, sprite_9
-// };
-
-// void start_screen(void) {
-//     DrawSprite(3, 4, CHAR_HEIGHT, CHAR_WIDTH, sprite_A, COLOR_RED);        
-//     DrawSprite(8, 4, CHAR_HEIGHT, CHAR_WIDTH, sprite_U, COLOR_RED);
-//     DrawSprite(13, 4, CHAR_HEIGHT, CHAR_WIDTH, sprite_T, COLOR_RED);
-//     DrawSprite(18, 4, CHAR_HEIGHT, CHAR_WIDTH, sprite_O, COLOR_RED);
-//     DrawSprite(23, 4, CHAR_HEIGHT, CHAR_WIDTH, sprite_N, COLOR_RED);
-    
-//     DrawSprite(17, 12, CHAR_HEIGHT, CHAR_WIDTH, sprite_A, COLOR_BLUE);
-//     DrawSprite(22, 12, CHAR_HEIGHT, CHAR_WIDTH, sprite_I, COLOR_BLUE);
-//     DrawSprite(27, 12, CHAR_HEIGHT, CHAR_WIDTH, sprite_R, COLOR_BLUE);  
-// }
-
-// void draw_win_screen(void) {
-//     if (player_score >= WINNING_SCORE) {
-//         DrawSprite(11, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[player_score], COLOR_BLUE);
-//         for(int i = 0; i < MATRIX_WIDTH; i++) {
-//             SetPixel(i, 0, COLOR_BLUE);                 
-//             SetPixel(i, MATRIX_HEIGHT - 1, COLOR_BLUE);  
-//             SetPixel(0, i, COLOR_BLUE);                 
-//             SetPixel(MATRIX_WIDTH - 1, i, COLOR_BLUE);   
-//         }
-//     } else if (bot_score >= WINNING_SCORE) {
-//         DrawSprite(11, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[bot_score], COLOR_RED);
-//         for(int i = 0; i < MATRIX_WIDTH; i++) {
-//             SetPixel(i, 0, COLOR_RED);
-//             SetPixel(i, MATRIX_HEIGHT - 1, COLOR_RED);
-//             SetPixel(0, i, COLOR_RED);
-//             SetPixel(MATRIX_WIDTH - 1, i, COLOR_RED);
-//         }
-//     }
-// }
-
-// //===========================================================================
-// // TIM14 INTERRUPT (Sensors Only - Matrix completely removed from IRQ)
-// //===========================================================================
-
-// void TIM14_IRQHandler(void) {
-//     if (TIM14->SR & TIM_SR_UIF) {
-//         TIM14->SR &= ~TIM_SR_UIF;
-
-//         if (!game_active) return;
-
-//         if (sensor_cooldown > 0) {
-//             sensor_cooldown--;
-//             if (sensor_cooldown == 0) send_state_byte(); 
-//             return;
-//         }
-
-//         bool scored = false;
-//         if (GPIOA->IDR & (1 << 12)) {
-//             player_score++;
-//             scored = true;
-//         } else if (GPIOA->IDR & (1 << 11)) {
-//             bot_score++;
-//             scored = true;
-//         }
-
-//         if (scored) {
-//             sensor_cooldown = GOAL_COOLDOWN_TICKS;
-//             if (player_score >= WINNING_SCORE || bot_score >= WINNING_SCORE) {
-//                 game_active = false;
-//             }
-//             send_state_byte(); 
-//         }
-//     }
-// }
-
-// //===========================================================================
-// // MAIN
-// //===========================================================================
-
-// int main(void) {
-//     enable_ports(); 
-    
-//     // Hardware Setup
-//     init_matrix_gpio(); // <--- This now correctly initializes PB3, PB6, PB7
-//     setup_tim14();
-//     init_sensors();      
-//     init_controls();  
-//     init_adc();
-//     init_uart();
-//     init_motors();
-
-//     // OLED Initialization
-//     init_oled_pins();
-//     spi1_init_oled();
-    
-//     // System Variables
-//     uint8_t pending_motor = 0;
-//     uint8_t pending_dir = 0;
-//     uint32_t watchdog_timer = 0;
-    
-//     // UI Variables
-//     uint8_t ui_state = UI_STATE_SPLASH;
-//     uint8_t selected_mode = MODE_BOT; 
-//     uint8_t oled_needs_update = 1;
-    
-//     // EDGE DETECTION
-//     uint8_t pc2_last_state = 1; 
-//     uint32_t pc2_debounce = 0; 
-    
-//     send_state_byte();
-
-//     while (1) {
-//         // --- 1. RX: Motor Control ---
-//         if (USART5->ISR & USART_ISR_RXNE) {
-//             uint8_t rx = USART5->RDR;
-//             if (rx & 0x80) { 
-//                 pending_motor = (rx >> 6) & 0x01;
-//                 pending_dir   = (rx >> 5) & 0x01;
-//             } else { 
-//                 uint8_t percent = rx & 0x7F; 
-//                 if (percent <= 100) { 
-//                     if (pending_motor == 0) set_motor_a(percent, pending_dir);
-//                     else                    set_motor_b(percent, pending_dir);
-//                     if (TEST_MODE == 0) watchdog_timer = 0;
-//                 }
-//             }
-//         } 
-//         else if (TEST_MODE == 0) {
-//             watchdog_timer++;
-//             if (watchdog_timer > WATCHDOG_MAX) {
-//                 set_motor_a(0, 0);
-//                 set_motor_b(0, 0);
-//                 watchdog_timer = WATCHDOG_MAX; 
-//             }
-//         }
-
-//         // --- 2. Hardware Button & Joystick Handling ---
-//         if (pc2_debounce > 0) pc2_debounce--;
-
-//         if (ui_state == UI_STATE_MENU) {
-//             uint16_t joy_y = read_adc();
-//             if (joy_y < 1000 && selected_mode != MODE_PLAYER) {
-//                 selected_mode = MODE_PLAYER;
-//                 oled_needs_update = 1;
-//             } else if (joy_y > 3000 && selected_mode != MODE_BOT) {
-//                 selected_mode = MODE_BOT;
-//                 oled_needs_update = 1;
-//             }
-//         }
-
-//         uint8_t pc2_current = (GPIOC->IDR & (1 << 2)) ? 1 : 0;
-        
-//         if (pc2_current == 0 && pc2_last_state == 1 && pc2_debounce == 0) {
-//             pc2_debounce = 5; 
+void draw_win_screen(void) {
+    for (int i = 0; i < NUM_FW; i++) {
+        if (fws[i].frame == 0) {
+            if ((rand() % 100) < 5) { 
+                fws[i].x = 4 + (rand() % 24);
+                fws[i].y = 4 + (rand() % 24);
+                
+                if (fws[i].x > 4 && fws[i].x < 28 && fws[i].y > 6 && fws[i].y < 24) {
+                    if (rand()%2 == 0) fws[i].y = 2 + rand()%4;
+                    else fws[i].y = 25 + rand()%4;
+                }
+                
+                uint8_t colors[] = {1, 2, 3, 4, 5, 6, 7};
+                fws[i].color = colors[rand() % 7];
+                fws[i].max_r = 2 + (rand() % 5); 
+                fws[i].frame = 1;
+            }
+        } else {
+            int r = fws[i].frame / 3; 
+            int x = fws[i].x, y = fws[i].y;
+            uint8_t c = fws[i].color;
             
-//             if (ui_state == UI_STATE_SPLASH) {
-//                 ui_state = UI_STATE_MENU;
-//                 oled_needs_update = 1;
-//             } else if (ui_state == UI_STATE_MENU) {
-//                 ui_state = UI_STATE_PLAY;
-//                 game_mode = selected_mode;
-//                 game_active = true;
-//                 player_score = 0;
-//                 bot_score = 0;
-//                 oled_needs_update = 1;
-//                 send_state_byte(); 
-//             } else if (ui_state == UI_STATE_PLAY) {
-//                 ui_state = UI_STATE_SPLASH;
-//                 game_active = false;
-//                 oled_needs_update = 1;
-//                 send_state_byte();
-//             }
-//         }
-//         pc2_last_state = pc2_current;
+            if (r > fws[i].max_r) { fws[i].frame = 0; continue; }
+            
+            if (r == 0) {
+                SetPixel(x, y, c);
+            } else {
+                int r_diag = (r * 7) / 10;
+                if (r_diag == 0 && r > 0) r_diag = 1;
+                SetPixel(x+r, y, c); SetPixel(x-r, y, c);
+                SetPixel(x, y+r, c); SetPixel(x, y-r, c);
+                SetPixel(x+r_diag, y+r_diag, c); SetPixel(x-r_diag, y+r_diag, c);
+                SetPixel(x+r_diag, y-r_diag, c); SetPixel(x-r_diag, y-r_diag, c);
+            }
+            fws[i].frame++;
+        }
+    }
+
+    uint8_t win_color = (player_score >= WINNING_SCORE) ? COLOR_BLUE : COLOR_RED;
+    draw_zipper_border(win_color);
+    
+    int base_y1 = 10;
+    int base_y2 = 17;
+
+    if (player_score >= WINNING_SCORE) {
+        DrawSprite(6,  base_y1 + get_bubble_offset(0), CHAR_HEIGHT, CHAR_WIDTH, s4_B, COLOR_BLUE);
+        DrawSprite(11, base_y1 + get_bubble_offset(1), CHAR_HEIGHT, CHAR_WIDTH, s4_L, COLOR_BLUE);
+        DrawSprite(16, base_y1 + get_bubble_offset(2), CHAR_HEIGHT, CHAR_WIDTH, s4_U, COLOR_BLUE);
+        DrawSprite(21, base_y1 + get_bubble_offset(3), CHAR_HEIGHT, CHAR_WIDTH, s4_E, COLOR_BLUE);
+    } else {
+        DrawSprite(8,  base_y1 + get_bubble_offset(0), CHAR_HEIGHT, CHAR_WIDTH, s4_R, COLOR_RED);
+        DrawSprite(13, base_y1 + get_bubble_offset(1), CHAR_HEIGHT, CHAR_WIDTH, s4_E, COLOR_RED);
+        DrawSprite(18, base_y1 + get_bubble_offset(2), CHAR_HEIGHT, CHAR_WIDTH, s4_D, COLOR_RED);
+    }
+    
+    DrawSprite(6,  base_y2 + get_bubble_offset(4), CHAR_HEIGHT, CHAR_WIDTH, s4_W, win_color);
+    DrawSprite(11, base_y2 + get_bubble_offset(5), CHAR_HEIGHT, CHAR_WIDTH, s4_I, win_color);
+    DrawSprite(16, base_y2 + get_bubble_offset(6), CHAR_HEIGHT, CHAR_WIDTH, s4_N, win_color);
+    DrawSprite(21, base_y2 + get_bubble_offset(7), CHAR_HEIGHT, CHAR_WIDTH, s4_S, win_color);
+}
+
+//===========================================================================
+// MAIN LOOP
+//===========================================================================
+int main(void) {
+    init_clock(); 
+    RCC->AHBENR |= RCC_AHBENR_GPIOAEN | RCC_AHBENR_GPIOBEN | RCC_AHBENR_GPIOCEN | RCC_AHBENR_GPIODEN;
+
+    init_matrix_gpio(); 
+    setup_tim14();
+    init_sensors();      
+    init_controls();  
+    init_adc();
+    init_uart();
+    init_motors();
+
+    init_oled_pins();
+    spi1_init_oled();
+    
+    uint8_t ui_state = UI_STATE_SPLASH;
+    uint8_t selected_mode = MODE_BOT; 
+    uint8_t oled_needs_update = 1;
+    
+    uint8_t pc2_last_state = 1; 
+    uint32_t pc2_debounce = 0; 
+    
+    const int bounce_lut[12] = {0, -1, -2, -3, -4, -5, -6, -5, -4, -3, -2, -1};
+    int last_p_score = 0; int last_b_score = 0;
+    int p_bounce = 0; int b_bounce = 0;
+    int p_splash_frame = 0; int b_splash_frame = 0;
+    
+    send_state_byte();
+
+    while (1) {
+        if (TEST_MODE == 0) {
+            watchdog_timer++;
+            if (watchdog_timer > WATCHDOG_MAX) {
+                set_motor_a(0, 0);
+                set_motor_b(0, 0);
+                watchdog_timer = WATCHDOG_MAX; 
+            }
+        }
+
+        if (pc2_debounce > 0) pc2_debounce--;
+
+        if (ui_state == UI_STATE_MENU) {
+            uint16_t joy_y = read_adc();
+            if (joy_y < 1000 && selected_mode != MODE_PLAYER) {
+                selected_mode = MODE_PLAYER; oled_needs_update = 1;
+            } else if (joy_y > 3000 && selected_mode != MODE_BOT) {
+                selected_mode = MODE_BOT; oled_needs_update = 1;
+            }
+        }
+
+        uint8_t pc2_current = (GPIOC->IDR & (1 << 2)) ? 1 : 0;
         
-//         // --- 3. OLED Menu Rendering ---
-//         if (oled_needs_update) {
-//             oled_needs_update = 0;
-//             spi_cmd(0x01); 
-//             delay_ms(2); 
-
-//             if (ui_state == UI_STATE_SPLASH) {
-//                 spi1_display1("Push Button     ");
-//                 spi1_display2("to start...     ");
-//             } 
-//             else if (ui_state == UI_STATE_MENU) {
-//                 if (selected_mode == MODE_PLAYER) {
-//                     spi1_display1("> Human         ");
-//                     spi1_display2("  Bot           ");
-//                 } else {
-//                     spi1_display1("  Human         ");
-//                     spi1_display2("> Bot           ");
-//                 }
-//             } 
-//             else if (ui_state == UI_STATE_PLAY) {
-//                 if (game_mode == MODE_PLAYER) {
-//                     spi1_display1("Playing:        ");
-//                     spi1_display2("Human Mode      ");
-//                 } else {
-//                     spi1_display1("Playing:        ");
-//                     spi1_display2("Bot Mode        ");
-//                 }
-//             }
-//         }
-
-//         // --- 4. LED Matrix Rendering ---
-//         ClearScreen();
-
-//         if (ui_state == UI_STATE_SPLASH || ui_state == UI_STATE_MENU) {
-//             start_screen(); 
-//         } 
-//         else if (ui_state == UI_STATE_PLAY) {
-//             if (!game_active && (player_score >= WINNING_SCORE || bot_score >= WINNING_SCORE)) {
-//                 draw_win_screen();
-//             } else {
-//                 if (player_score < 10)
-//                     DrawSprite(2, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[player_score], COLOR_BLUE);
-//                 if (bot_score < 10)
-//                     DrawSprite(18, 9, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[bot_score], COLOR_RED);
-//             }
-//         }
+        if (pc2_current == 0 && pc2_last_state == 1 && pc2_debounce == 0) {
+            pc2_debounce = 5; 
+            
+            if (ui_state == UI_STATE_SPLASH) {
+                ui_state = UI_STATE_MENU; oled_needs_update = 1;
+            } else if (ui_state == UI_STATE_MENU) {
+                ui_state = UI_STATE_PLAY; game_mode = selected_mode; game_active = true;
+                player_score = 0; bot_score = 0; last_p_score = 0; last_b_score = 0;
+                p_bounce = 0; b_bounce = 0; p_splash_frame = 0; b_splash_frame = 0;
+                sensor_cooldown = 0; 
+                for(int i=0; i<NUM_FW; i++) fws[i].frame = 0; 
+                oled_needs_update = 1; send_state_byte(); 
+            } else if (ui_state == UI_STATE_PLAY) {
+                ui_state = UI_STATE_SPLASH; game_active = false;
+                oled_needs_update = 1; send_state_byte();
+            }
+        }
+        pc2_last_state = pc2_current;
         
-//         // --- THE ENGINE OF THE DISPLAY ---
-//         // Instead of doing nothing for 16ms, this hijacked delay continuously
-// //         // calls `Matrix_Scan()` thousands of times, giving you the rock-solid
-// //         // stability of `led_test.c` without breaking your game loop!
-// //         delay_ms(10); 
-// //     }
-// // }
+        if (oled_needs_update) {
+            oled_needs_update = 0;
+            spi_cmd(0x01); delay_ms(2); 
+            if (ui_state == UI_STATE_SPLASH) {
+                spi1_display1("Push Button     "); spi1_display2("to start...     ");
+            } else if (ui_state == UI_STATE_MENU) {
+                if (selected_mode == MODE_PLAYER) {
+                    spi1_display1("> Blue (Human)  "); spi1_display2("  Red (Bot)     ");
+                } else {
+                    spi1_display1("  Blue (Human)  "); spi1_display2("> Red (Bot)     ");
+                }
+            } else if (ui_state == UI_STATE_PLAY) {
+                if (game_mode == MODE_PLAYER) {
+                    spi1_display1("Playing:        "); spi1_display2("Blue (Human)    ");
+                } else {
+                    spi1_display1("Playing:        "); spi1_display2("Red (Bot)       ");
+                }
+            }
+        }
+
+        ClearScreen();
+
+        if (ui_state == UI_STATE_SPLASH || ui_state == UI_STATE_MENU) {
+            start_screen(); 
+        } else if (ui_state == UI_STATE_PLAY) {
+            if (!game_active && (player_score >= WINNING_SCORE || bot_score >= WINNING_SCORE)) {
+                draw_win_screen();
+            } else {
+                if (player_score > last_p_score) { p_bounce = 11; p_splash_frame = 1; last_p_score = player_score; }
+                if (bot_score > last_b_score) { b_bounce = 11; b_splash_frame = 1; last_b_score = bot_score; }
+                
+                if (p_bounce > 0) p_bounce--;
+                if (b_bounce > 0) b_bounce--;
+
+                int p_y = 9 + bounce_lut[p_bounce];
+                int b_y = 9 + bounce_lut[b_bounce];
+
+                if (p_splash_frame > 0) {
+                    int r = p_splash_frame / 2; int cx = 8, cy = 16;
+                    if (r <= 6) {
+                        SetPixel(cx + r, cy, COLOR_WHITE); SetPixel(cx - r, cy, COLOR_WHITE);
+                        SetPixel(cx, cy + r, COLOR_WHITE); SetPixel(cx, cy - r, COLOR_WHITE);
+                        if (r > 1) {
+                            int d = r - 1;
+                            SetPixel(cx + d, cy + d, COLOR_WHITE); SetPixel(cx - d, cy - d, COLOR_WHITE);
+                            SetPixel(cx + d, cy - d, COLOR_WHITE); SetPixel(cx - d, cy + d, COLOR_WHITE);
+                        }
+                        p_splash_frame++;
+                    } else p_splash_frame = 0;
+                }
+
+                if (b_splash_frame > 0) {
+                    int r = b_splash_frame / 2; int cx = 24, cy = 16;
+                    if (r <= 6) {
+                        SetPixel(cx + r, cy, COLOR_WHITE); SetPixel(cx - r, cy, COLOR_WHITE);
+                        SetPixel(cx, cy + r, COLOR_WHITE); SetPixel(cx, cy - r, COLOR_WHITE);
+                        if (r > 1) {
+                            int d = r - 1;
+                            SetPixel(cx + d, cy + d, COLOR_WHITE); SetPixel(cx - d, cy - d, COLOR_WHITE);
+                            SetPixel(cx + d, cy - d, COLOR_WHITE); SetPixel(cx - d, cy + d, COLOR_WHITE);
+                        }
+                        b_splash_frame++;
+                    } else b_splash_frame = 0;
+                }
+
+                if (player_score < 10) DrawSprite(3, p_y, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[player_score], COLOR_BLUE);
+                if (bot_score < 10) DrawSprite(19, b_y, NUM_HEIGHT, NUM_WIDTH, sprite_numbers[bot_score], COLOR_RED);
+            }
+        }
+        
+        anim_tick++;
+        delay_ms(16); 
+    }
+}
