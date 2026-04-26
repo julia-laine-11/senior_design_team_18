@@ -88,6 +88,8 @@ DEFAULT_GOAL_LENGTH = 200          # vertical extent of the goal opening
 # Trajectory / interception
 TRAJECTORY_DAMPING = 0.95
 TRAJECTORY_TIME = 2.0
+TRAJECTORY_STABLE_FRAMES = 3
+TRAJECTORY_STABLE_TOLERANCE = 10.0
 
 # Tracking
 LOST_THRESHOLD = 15
@@ -106,9 +108,9 @@ CONFIG_VERSION = 1
 # ==================== KEY MAPPINGS (manual mode) ====================
 
 _NUM_DIRS = {
-    ord('7'): (-1,  1), ord('8'): (0,  1), ord('9'): (1,  1),
+    ord('7'): (-1, -1), ord('8'): (0, -1), ord('9'): (1, -1),
     ord('4'): (-1,  0), ord('5'): (0,  0), ord('6'): (1,  0),
-    ord('1'): (-1, -1), ord('2'): (0, -1), ord('3'): (1, -1),
+    ord('1'): (-1,  1), ord('2'): (0,  1), ord('3'): (1,  1),
 }
 _WASD_DIRS = {
     ord('w'): (0,  1), ord('a'): (-1, 0),
@@ -387,6 +389,9 @@ class GameState:
         self.puck_hsv_high = _load_hsv(settings, "puck_hsv_high", PUCK_HSV_HIGH)
         self.mallet_hsv_low = _load_hsv(settings, "mallet_hsv_low", MALLET_HSV_LOW)
         self.mallet_hsv_high = _load_hsv(settings, "mallet_hsv_high", MALLET_HSV_HIGH)
+        self.mallet_min_radius = _as_int(
+            settings.get("mallet_min_radius", MALLET_MIN_RADIUS),
+            MALLET_MIN_RADIUS, 1, MALLET_MAX_RADIUS)
 
         # Game / defense
         self.game_enabled = False
@@ -462,6 +467,7 @@ class GameState:
             "puck_hsv_high": list(self.puck_hsv_high),
             "mallet_hsv_low": list(self.mallet_hsv_low),
             "mallet_hsv_high": list(self.mallet_hsv_high),
+            "mallet_min_radius": self.mallet_min_radius,
             "speed": self.speed,
             "home_x": self.home_x,
             "home_y": self.home_y,
@@ -535,6 +541,16 @@ class GameState:
         with self.lock:
             self.mallet_hsv_low = list(low)
             self.mallet_hsv_high = list(high)
+            self.save_settings()
+
+    def get_mallet_min_radius(self):
+        with self.lock:
+            return self.mallet_min_radius
+
+    def set_mallet_min_radius(self, val):
+        with self.lock:
+            self.mallet_min_radius = _as_int(
+                val, self.mallet_min_radius, 1, MALLET_MAX_RADIUS)
             self.save_settings()
 
     def get_speed(self):
@@ -634,6 +650,7 @@ class ControlGUI:
         red_defaults = s.get_red_margins()
         puck_hsv_low, puck_hsv_high = s.get_puck_hsv()
         mallet_hsv_low, mallet_hsv_high = s.get_mallet_hsv()
+        mallet_min_radius = s.get_mallet_min_radius()
         speed_default = s.get_speed()
         goal_x, goal_y, goal_length = s.get_goal()
         home_x, home_y = s.get_home()
@@ -843,6 +860,17 @@ class ControlGUI:
             self.mallet_sliders[name] = sl
         mhsv.columnconfigure(1, weight=1)
         mhsv.columnconfigure(3, weight=1)
+        # Mallet minimum radius
+        mrad_f = ttk.LabelFrame(vision_tab, text="Mallet Minimum Radius (px)", padding=5)
+        mrad_f.pack(fill="x", padx=8, pady=4)
+        self.mallet_rad_sl = ttk.Scale(
+            mrad_f, from_=1, to=MALLET_MAX_RADIUS, orient="horizontal")
+        self.mallet_rad_sl.set(mallet_min_radius)
+        self.mallet_rad_sl.pack(fill="x")
+        self.mallet_rad_sl.configure(command=lambda v: s.set_mallet_min_radius(v))
+        self.mallet_rad_val = ttk.Label(
+            mrad_f, text=f"{mallet_min_radius}px", font=("Courier", 10))
+        self.mallet_rad_val.pack(anchor="e")
 
         # Display options
         disp = ttk.LabelFrame(vision_tab, text="Display", padding=5)
@@ -943,6 +971,7 @@ class ControlGUI:
         red = s.get_red_margins()
         pl, ph = s.get_puck_hsv()
         ml, mh = s.get_mallet_hsv()
+        mallet_min_radius = s.get_mallet_min_radius()
         gx, gy, gl = s.get_goal()
         hx, hy = s.get_home()
         spd = s.get_speed()
@@ -973,6 +1002,7 @@ class ControlGUI:
               f'dtype=np.uint8)')
         print(f'MALLET_HSV_HIGH = np.array([{mh[0]}, {mh[1]}, {mh[2]}], '
               f'dtype=np.uint8)')
+        print(f'MALLET_MIN_RADIUS = {mallet_min_radius}')
         # Computed positions
         rx1, ry1 = roi["left"], roi["top"]
         rx2, ry2 = w - roi["right"], h - roi["bottom"]
@@ -1012,6 +1042,7 @@ class ControlGUI:
                 clear_on = s.clear_mode
                 dstate = s.defense_state
                 spd = s.speed
+                mallet_min_radius = s.mallet_min_radius
                 
                 # Fetch STM32 State values
                 stm_playing = s.stm_playing
@@ -1033,6 +1064,7 @@ class ControlGUI:
             self.zone_label.config(
                 text="Zone: !! RED !!" if in_red else "Zone: OK")
             self.speed_val.config(text=f"{spd}%")
+            self.mallet_rad_val.config(text=f"{mallet_min_radius}px")
 
             # Game & Clear Mode
             self.game_label.config(text="GAME ON  (G to toggle)" if game else "OFF  (G to toggle)")
@@ -1190,6 +1222,8 @@ def _inner_loop(state, stop_event, ctrl, cap,
     # Ramping & smoothing variables
     prev_vx, prev_vy = 0.0, 0.0
     smoothed_target_y = None
+    stable_raw_target_y = None
+    stable_target_frames = 0
 
     # FPS
     fps_alpha = 0.1
@@ -1212,6 +1246,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
         red_margins = state.get_red_margins()
         puck_hsv_low, puck_hsv_high = state.get_puck_hsv()
         mallet_hsv_low, mallet_hsv_high = state.get_mallet_hsv()
+        mallet_min_radius = state.get_mallet_min_radius()
         goal_x, goal_y, goal_len = state.get_goal()
         home_x, home_y = state.get_home()
         
@@ -1297,10 +1332,10 @@ def _inner_loop(state, stop_event, ctrl, cap,
         mpred = (None if mallet_lost_frames >= LOST_THRESHOLD
                  else (mx * PROCESSING_SCALE, my * PROCESSING_SCALE))
         mallet = find_circle(mallet_cnts,
-                             MALLET_MIN_RADIUS * PROCESSING_SCALE,
+                             mallet_min_radius * PROCESSING_SCALE,
                              MALLET_MAX_RADIUS * PROCESSING_SCALE, mpred)
         mallet_det = mallet is not None
-        mr = float(MALLET_MIN_RADIUS)
+        mr = float(mallet_min_radius)
 
         if mallet_det:
             mx = mallet[0] * scale_inv
@@ -1411,11 +1446,44 @@ def _inner_loop(state, stop_event, ctrl, cap,
                 return out_vx, out_vy
             return 0.0, 0.0
 
+        def _reset_target_stability():
+            nonlocal smoothed_target_y, stable_raw_target_y, stable_target_frames
+            smoothed_target_y = None
+            stable_raw_target_y = None
+            stable_target_frames = 0
+
+        def _update_stable_target(raw_target_y):
+            nonlocal smoothed_target_y, stable_raw_target_y, stable_target_frames
+            raw_target_y = float(raw_target_y)
+
+            if stable_raw_target_y is None:
+                stable_raw_target_y = raw_target_y
+                stable_target_frames = 1
+            elif abs(raw_target_y - stable_raw_target_y) <= TRAJECTORY_STABLE_TOLERANCE:
+                stable_target_frames += 1
+                stable_raw_target_y = (
+                    stable_raw_target_y * (1.0 - TARGET_SMOOTHING)
+                ) + (raw_target_y * TARGET_SMOOTHING)
+            else:
+                stable_raw_target_y = raw_target_y
+                stable_target_frames = 1
+
+            if stable_target_frames >= TRAJECTORY_STABLE_FRAMES:
+                if smoothed_target_y is None:
+                    smoothed_target_y = stable_raw_target_y
+                elif abs(stable_raw_target_y - smoothed_target_y) > 5:
+                    smoothed_target_y = (
+                        smoothed_target_y * (1.0 - TARGET_SMOOTHING)
+                    ) + (stable_raw_target_y * TARGET_SMOOTHING)
+                return smoothed_target_y, True
+
+            return smoothed_target_y, False
+
         # SAFETY: mallet not detected → STOP
         if not mallet_det:
             defense_state = "SAFETY STOP"
             target_vx, target_vy = 0.0, 0.0
-            smoothed_target_y = None
+            _reset_target_stability()
 
         elif game_on:
             guard_x = safe_left
@@ -1425,6 +1493,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
             is_puck_stopped = puck_det and puck_speed < 0.05  # Slow enough to be considered dead
             
             if clear_on and is_puck_our_side and is_puck_stopped:
+                _reset_target_stability()
                 defense_state = "CLEARING"
                 
                 # Check if we are already in position behind (left of) the puck to strike right
@@ -1443,7 +1512,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
             elif not puck_det or (px < 0 and py < 0):
                 # Puck lost → go home
                 defense_state = "HOMING"
-                smoothed_target_y = None
+                _reset_target_stability()
                 target_vx, target_vy = _drive_to(home_x, home_y, HOME_THRESHOLD)
                 
                 target_home = _safe_target(home_x, home_y)
@@ -1476,43 +1545,35 @@ def _inner_loop(state, stop_event, ctrl, cap,
                         table_left, table_right, table_top, table_bottom)
 
                     raw_target_y = rz_result[1] if rz_result is not None else intercept_y
-                    
-                    # FIXED: Target Hysteresis smoothing
-                    if smoothed_target_y is None:
-                        smoothed_target_y = raw_target_y
-                    elif abs(raw_target_y - smoothed_target_y) > 5:
-                        smoothed_target_y = (smoothed_target_y * (1.0 - TARGET_SMOOTHING)) + (raw_target_y * TARGET_SMOOTHING)
-
-                    target_y = max(guard_top, min(guard_bottom, smoothed_target_y))
-                    defense_state = "INTERCEPT"
-                    target_vx, target_vy = _drive_to(target_x, target_y)
+                    stable_target_y, is_stable = _update_stable_target(raw_target_y)
+                    if stable_target_y is not None:
+                        target_y = max(guard_top, min(guard_bottom, stable_target_y))
+                        target_vx, target_vy = _drive_to(target_x, target_y)
+                    defense_state = "INTERCEPT" if is_stable else "INTERCEPT HOLD"
 
                 else:
                     # Retreat / Reset when puck is moving away
                     if pvx > 30.0:
                         raw_target_y = home_y
-                        defense_state = "RESETTING"
+                        base_state = "RESETTING"
                     else:
                         raw_target_y = (py + home_y) / 2.0
-                        defense_state = "GUARD"
-                        
-                    # FIXED: Target Hysteresis smoothing
-                    if smoothed_target_y is None:
-                        smoothed_target_y = raw_target_y
-                    elif abs(raw_target_y - smoothed_target_y) > 5:
-                        smoothed_target_y = (smoothed_target_y * (1.0 - TARGET_SMOOTHING)) + (raw_target_y * TARGET_SMOOTHING)
-                        
-                    target_y = max(guard_top, min(guard_bottom, smoothed_target_y))
-                    target_vx, target_vy = _drive_to(guard_x, target_y)
-                    
-                    if target_vx == 0.0 and target_vy == 0.0 and defense_state == "GUARD":
+                        base_state = "GUARD"
+
+                    stable_target_y, is_stable = _update_stable_target(raw_target_y)
+                    if stable_target_y is not None:
+                        target_y = max(guard_top, min(guard_bottom, stable_target_y))
+                        target_vx, target_vy = _drive_to(guard_x, target_y)
+                    defense_state = base_state if is_stable else f"{base_state} HOLD"
+
+                    if is_stable and target_vx == 0.0 and target_vy == 0.0 and base_state == "GUARD":
                         defense_state = "WAITING"
 
         else:
             # ---- Manual control ----
             defense_state = "MANUAL"
             target_vx, target_vy = float(dx), float(dy)
-            smoothed_target_y = None
+            _reset_target_stability()
 
         # ============================================================
         # NEW LOGIC: Acceleration Ramping (Ramp UP only, snap on stop)
