@@ -2,9 +2,9 @@
   "version": 1,
   "table_roi": {
     "top": 112,
-    "bottom": 65,
-    "left": 21,
-    "right": 72
+    "bottom": 69,
+    "left": 23,
+    "right": 74
   },
   "corner_radius": 55,
   "box_margins": {
@@ -14,9 +14,9 @@
     "right": 300
   },
   "red_margins": {
-    "top": 39,
+    "top": 24,
     "bottom": 30,
-    "left": 28,
+    "left": 26,
     "right": 90
   },
   "puck_hsv_low": [
@@ -30,21 +30,21 @@
     255
   ],
   "mallet_hsv_low": [
-    2,
-    129,
-    175
+    8,
+    101,
+    155
   ],
   "mallet_hsv_high": [
-    12,
-    191,
-    231
+    26,
+    207,
+    237
   ],
-  "speed": 70,
-  "home_x": 82,
+  "speed": 75,
+  "home_x": 176,
   "home_y": 262,
-  "goal_x": 24,
-  "goal_y": 258,
-  "goal_length": 124,
+  "goal_x": 87,
+  "goal_y": 263,
+  "goal_length": 102,
   "show_mask": true,
   "show_roi": true,
   "show_trajectory": true
