@@ -25,6 +25,7 @@
 #define UI_STATE_PLAY       2
 
 #define COLOR_RED   1
+#define COLOR_GREEN 2
 #define COLOR_BLUE  4
 #define COLOR_WHITE 7
 
@@ -66,6 +67,7 @@ void init_oled_pins(void);
 void spi_cmd(unsigned int data);
 void spi_data(unsigned int data);
 void spi1_init_oled(void);
+void oled_refresh_state(void);
 void spi1_display1(const char *string);
 void spi1_display2(const char *string);
 void init_controls(void);

@@ -1762,7 +1762,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
             mv[:, :, 1] = pm_full
             mv[:, :, 2] = mm_full
             mv[:, :, 0] = mm_full // 2
-            cv2.putText(mv, "GREEN=Puck  ORANGE=Mallet", (10, 25),
+            cv2.putText(mv, "Puck: Green                   Mallet: Pink", (10, 25),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                         (255, 255, 255), 1)
             cv2.imshow("Masks", mv)

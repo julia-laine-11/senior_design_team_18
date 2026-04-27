@@ -17,7 +17,7 @@
     "top": 24,
     "bottom": 30,
     "left": 26,
-    "right": 90
+    "right": 50
   },
   "puck_hsv_low": [
     41,
@@ -30,21 +30,22 @@
     255
   ],
   "mallet_hsv_low": [
-    8,
-    101,
+    4,
+    139,
     155
   ],
   "mallet_hsv_high": [
-    26,
+    25,
     207,
     237
   ],
-  "speed": 75,
+  "mallet_min_radius": 10,
+  "speed": 68,
   "home_x": 176,
   "home_y": 262,
-  "goal_x": 87,
+  "goal_x": 24,
   "goal_y": 263,
-  "goal_length": 102,
+  "goal_length": 122,
   "show_mask": true,
   "show_roi": true,
   "show_trajectory": true

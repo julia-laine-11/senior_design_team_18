@@ -45,21 +45,51 @@ void spi_send_10bit(uint16_t data) {
     GPIOC->BSRR = (1U << 11); small_delay();
 }
 
-void spi_cmd(unsigned int data) { spi_send_10bit(data & 0xFF); delay_ms(1); }
-void spi_data(unsigned int data) { spi_send_10bit(data | 0x200); delay_ms(1); }
+void spi_cmd(unsigned int data) { 
+    spi_send_10bit(data & 0xFF); 
+    
+    // Clear Display (0x01) and Return Home (0x02) take >1.5ms to process
+    if ((data & 0xFF) == 0x01 || (data & 0xFF) == 0x02) {
+        delay_ms(3); // Enforce safe timing to prevent P-bug
+    } else {
+        delay_ms(1); 
+    }
+}
+
+void spi_data(unsigned int data) { 
+    spi_send_10bit(data | 0x200); 
+    delay_ms(1); 
+}
 
 void spi1_init_oled(void) {
-    delay_ms(100); 
-    spi_cmd(0x38); spi_cmd(0x08); spi_cmd(0x17); spi_cmd(0x01); 
-    delay_ms(5);   
-    spi_cmd(0x06); spi_cmd(0x02); spi_cmd(0x0C); 
+    delay_ms(100); // Cold boot stabilization
+    spi_cmd(0x38); // Function set: 8-bit, 2-line
+    spi_cmd(0x08); // Display off
+    spi_cmd(0x17); // Character mode, internal power on
+    spi_cmd(0x01); // Clear
+    spi_cmd(0x06); // Entry mode: increment
+    spi_cmd(0x02); // Return home
+    spi_cmd(0x0C); // Display on
+}
+
+void oled_refresh_state(void) {
+    // Fast, safe re-initialization that catches hot-plugs 
+    // without freezing the game loop for 100ms.
+    spi_cmd(0x38); // Re-assert 8-bit, 2-line
+    spi_cmd(0x17); // Re-assert internal power 
+    spi_cmd(0x06); // Re-assert entry mode (prevents text overwriting)
+    spi_cmd(0x0C); // Display ON
+    spi_cmd(0x01); // Clear display
 }
 
 void spi1_display1(const char *string) {
-    spi_cmd(0x02); while(*string != '\0') { spi_data(*string); string++; }
+    spi_cmd(0x02); 
+    while(*string != '\0') { spi_data(*string); string++; }
 }
+
 void spi1_display2(const char *string) {
-    spi_cmd(0xC0); while(*string != '\0') { spi_data(*string); string++; }
+    spi_cmd(0xC0); 
+    while(*string != '\0') { spi_data(*string); string++; }
 }
 
 void init_controls(void) {
