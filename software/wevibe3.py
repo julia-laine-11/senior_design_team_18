@@ -1250,6 +1250,22 @@ def _inner_loop(state, stop_event, ctrl, cap,
 
     # Intercept smoothing
 
+    USE_UMAT = False
+    try:
+        if cv2.ocl.haveOpenCL():
+            cv2.ocl.setUseOpenCL(True)
+            USE_UMAT = cv2.ocl.useOpenCL()
+            print(f"[GPU] OpenCL available: {USE_UMAT}")
+            if not USE_UMAT:
+                print("[GPU] OpenCL present but disabled – attempting to enable")
+                cv2.ocl.setUseOpenCL(True)
+                USE_UMAT = cv2.ocl.useOpenCL()
+        else:
+            print("[GPU] No OpenCL found – using CPU pipeline")
+    except Exception as e:
+        print(f"[GPU] OpenCL check failed ({e}) – using CPU pipeline")
+    umat_roi_mask = cv2.UMat(roi_mask) if USE_UMAT else None
+
     while not stop_event.is_set():
         t0 = time.perf_counter()
 
