@@ -69,7 +69,7 @@ RED_ZONE_MARGINS = {"top": 30, "bottom": 30, "left": 30, "right": 30}
 
 # Speed & Ramping Constraints
 DEFAULT_SPEED = 15
-TARGET_SMOOTHING = 0.3    # Lower = smoother intercept calculation, but slight delay
+TARGET_SMOOTHING = 0.5    # Higher = faster response to intercept changes
 MOTOR_RAMP_RATE = 0.25    # Max percent velocity change per frame (prevents bolting)
 PROPORTIONAL_ZONE = 60.0  # Pixels away from target where robot starts slowing down
 DEADBAND_PX = 10          # Don't move if already within this many pixels
@@ -88,8 +88,8 @@ DEFAULT_GOAL_LENGTH = 200          # vertical extent of the goal opening
 # Trajectory / interception
 TRAJECTORY_DAMPING = 0.95
 TRAJECTORY_TIME = 2.0
-TRAJECTORY_STABLE_FRAMES = 3
-TRAJECTORY_STABLE_TOLERANCE = 10.0
+TRAJECTORY_STABLE_FRAMES = 1
+TRAJECTORY_STABLE_TOLERANCE = 20.0
 
 # Tracking
 LOST_THRESHOLD = 15
@@ -1580,7 +1580,7 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     goal_x, goal_y, goal_len,
                     table_left, table_right, table_top, table_bottom)
 
-                is_attacking = pvx < -10.0
+                is_attacking = pvx < -7.0
 
                 if goal_result is not None and is_attacking:
                     # Puck WILL cross the goal line.
@@ -1588,13 +1588,16 @@ def _inner_loop(state, stop_event, ctrl, reader,
 
                     # V-Shape Forward push to cut off sharp angles
                     dy_from_center = abs(intercept_y - goal_y)
-                    push_forward = min(50.0, dy_from_center * 0.4)
+                    push_forward = min(60.0, dy_from_center * 0.5)
                     target_x = min(safe_right, guard_x + push_forward)
 
-                    # Re-predict where the path crosses this NEW forward line
+                    # Re-predict where the path crosses the mallet face
+                    # (target_x + mr) so the puck hits the center of the
+                    # mallet, not a top/bottom edge.
+                    face_x = target_x + mr
                     rz_result = predict_intercept(
                         px, py, pvx, pvy,
-                        target_x, goal_y, goal_len,
+                        face_x, goal_y, goal_len,
                         table_left, table_right, table_top, table_bottom)
 
                     raw_target_y = rz_result[1] if rz_result is not None else intercept_y
