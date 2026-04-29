@@ -1116,31 +1116,83 @@ class ControlGUI:
         self.root.mainloop()
 
 
+# ==================== CAMERA THREAD ====================
+
+class CameraReader:
+    """Threaded V4L2 camera capture. Always returns the latest frame."""
+
+    def __init__(self, index, width, height, fps):
+        self.cap = cv2.VideoCapture(index, cv2.CAP_V4L2)
+        if not self.cap.isOpened():
+            raise RuntimeError(f"Cannot open camera {index}")
+
+        # V4L2 init order: resolution → format → fps
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        self.cap.set(cv2.CAP_PROP_FOURCC,
+                     cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
+        self.cap.set(cv2.CAP_PROP_FPS, fps)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
+
+        # Verify actual settings
+        actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_h = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        actual_fps = self.cap.get(cv2.CAP_PROP_FPS)
+        actual_fourcc = int(self.cap.get(cv2.CAP_PROP_FOURCC))
+        fcc = (
+            chr(actual_fourcc & 0xFF)
+            + chr((actual_fourcc >> 8) & 0xFF)
+            + chr((actual_fourcc >> 16) & 0xFF)
+            + chr((actual_fourcc >> 24) & 0xFF)
+        )
+        print(f"Camera actual: {actual_w}x{actual_h} @ {actual_fps:.1f} FPS [{fcc}]")
+
+        ret, frame = self.cap.read()
+        if not ret:
+            raise RuntimeError("Cannot read first frame from camera")
+        self._shape = frame.shape
+
+        self._latest = frame
+        self._lock = RLock()
+        self._stop = Event()
+        self._t = Thread(target=self._run, daemon=True)
+        self._t.start()
+        print("[Camera] Capture thread started (V4L2)")
+
+    def _run(self):
+        while not self._stop.is_set():
+            ret, frame = self.cap.read()
+            if ret:
+                with self._lock:
+                    self._latest = frame
+
+    def read(self):
+        with self._lock:
+            frame = self._latest
+        return frame is not None, frame
+
+    def shape(self):
+        return self._shape
+
+    def release(self):
+        self._stop.set()
+        self._t.join(timeout=1)
+        self.cap.release()
+
+
 # ==================== TRACKING / DEFENSE THREAD ====================
 
 def tracking_thread(state, stop_event):
     """Main loop: camera → detection → defense → motor → display."""
-    print(f"\nOpening camera {CAM_INDEX}...")
-    cap = cv2.VideoCapture(CAM_INDEX)
-    cap.set(cv2.CAP_PROP_FOURCC,
-            cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
-    cap.set(cv2.CAP_PROP_FPS, 90)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
-
-    if not cap.isOpened():
-        print("Error: Cannot open camera")
+    print(f"\nOpening camera {CAM_INDEX} (V4L2 MJPG)...")
+    try:
+        reader = CameraReader(CAM_INDEX, FRAME_WIDTH, FRAME_HEIGHT, 90)
+    except Exception as e:
+        print(f"Error: {e}")
         return
 
-    ret, frame = cap.read()
-    if not ret:
-        print("Error: Cannot read camera")
-        return
-
-    h, w = frame.shape[:2]
-    print(f"Camera: {w}x{h} @ {cap.get(cv2.CAP_PROP_FPS):.0f} FPS")
+    h, w = reader.shape()[:2]
 
     # ---- Motor controller ----
     ctrl = None
@@ -1163,23 +1215,6 @@ def tracking_thread(state, stop_event):
     roi_mask = _build_roi_mask(proc_w, proc_h, w, h, roi, radius)
     last_roi_key = _roi_key(roi, radius)
 
-    # ---- GPU / OpenCL acceleration ----
-    USE_UMAT = False
-    try:
-        if cv2.ocl.haveOpenCL():
-            cv2.ocl.setUseOpenCL(True)
-            USE_UMAT = cv2.ocl.useOpenCL()
-            print(f"[GPU] OpenCL available: {USE_UMAT}")
-            if not USE_UMAT:
-                print("[GPU] OpenCL present but disabled – attempting to enable")
-                cv2.ocl.setUseOpenCL(True)
-                USE_UMAT = cv2.ocl.useOpenCL()
-        else:
-            print("[GPU] No OpenCL found – using CPU pipeline")
-    except Exception as e:
-        print(f"[GPU] OpenCL check failed ({e}) – using CPU pipeline")
-    umat_roi_mask = cv2.UMat(roi_mask) if USE_UMAT else None
-
     # ---- Kalman filters ----
     puck_kf = KalmanTracker(w // 2, h // 2)
     mallet_kf = KalmanTracker(w // 2, h // 4)
@@ -1192,7 +1227,7 @@ def tracking_thread(state, stop_event):
     print("-" * 60)
 
     try:
-        _inner_loop(state, stop_event, ctrl, cap,
+        _inner_loop(state, stop_event, ctrl, reader,
                     w, h, proc_w, proc_h, scale_inv,
                     hsv_buf, roi_mask, last_roi_key,
                     puck_kf, mallet_kf)
@@ -1204,7 +1239,7 @@ def tracking_thread(state, stop_event):
         print("\nStopping motors...")
         if ctrl:
             ctrl.close()
-        cap.release()
+        reader.release()
         cv2.destroyAllWindows()
 
 
@@ -1222,7 +1257,7 @@ def _build_roi_mask(proc_w, proc_h, w, h, roi, radius):
         int(radius * PROCESSING_SCALE))
 
 
-def _inner_loop(state, stop_event, ctrl, cap,
+def _inner_loop(state, stop_event, ctrl, reader,
                 w, h, proc_w, proc_h, scale_inv,
                 hsv_buf, roi_mask, last_roi_key,
                 puck_kf, mallet_kf):
@@ -1248,28 +1283,10 @@ def _inner_loop(state, stop_event, ctrl, cap,
     last_time = time.perf_counter()
     frame_count = 0
 
-    # Intercept smoothing
-
-    USE_UMAT = False
-    try:
-        if cv2.ocl.haveOpenCL():
-            cv2.ocl.setUseOpenCL(True)
-            USE_UMAT = cv2.ocl.useOpenCL()
-            print(f"[GPU] OpenCL available: {USE_UMAT}")
-            if not USE_UMAT:
-                print("[GPU] OpenCL present but disabled – attempting to enable")
-                cv2.ocl.setUseOpenCL(True)
-                USE_UMAT = cv2.ocl.useOpenCL()
-        else:
-            print("[GPU] No OpenCL found – using CPU pipeline")
-    except Exception as e:
-        print(f"[GPU] OpenCL check failed ({e}) – using CPU pipeline")
-    umat_roi_mask = cv2.UMat(roi_mask) if USE_UMAT else None
-
     while not stop_event.is_set():
         t0 = time.perf_counter()
 
-        ret, frame = cap.read()
+        ret, frame = reader.read()
         if not ret:
             break
         t_cap = time.perf_counter()
@@ -1315,36 +1332,25 @@ def _inner_loop(state, stop_event, ctrl, cap,
         if cur_key != last_roi_key:
             roi_mask = _build_roi_mask(proc_w, proc_h, w, h, roi, radius)
             last_roi_key = cur_key
-            if USE_UMAT:
-                umat_roi_mask = cv2.UMat(roi_mask)
 
         # ---- Vision pipeline ----
-        if USE_UMAT:
-            umat_frame = cv2.UMat(frame)
-            small = cv2.resize(umat_frame, (proc_w, proc_h), interpolation=cv2.INTER_LINEAR)
-            small = cv2.blur(small, (3, 3))
-            hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
-            puck_mask = cv2.inRange(hsv, puck_hsv_low, puck_hsv_high)
-            puck_mask = cv2.bitwise_and(puck_mask, umat_roi_mask)
-            mallet_mask = cv2.inRange(hsv, mallet_hsv_low, mallet_hsv_high)
-            mallet_mask = cv2.bitwise_and(mallet_mask, umat_roi_mask)
-            puck_mask_cpu = puck_mask.get()
-            mallet_mask_cpu = mallet_mask.get()
-        else:
-            small = cv2.resize(frame, (proc_w, proc_h), interpolation=cv2.INTER_LINEAR)
-            cv2.blur(small, (3, 3), dst=small)
-            cv2.cvtColor(small, cv2.COLOR_BGR2HSV, dst=hsv_buf)
-            puck_mask = cv2.inRange(hsv_buf, puck_hsv_low, puck_hsv_high)
-            cv2.bitwise_and(puck_mask, roi_mask, dst=puck_mask)
-            mallet_mask = cv2.inRange(hsv_buf, mallet_hsv_low, mallet_hsv_high)
-            cv2.bitwise_and(mallet_mask, roi_mask, dst=mallet_mask)
-            puck_mask_cpu = puck_mask
-            mallet_mask_cpu = mallet_mask
+        # ---- Vision pipeline ----
+        small = cv2.resize(frame, (proc_w, proc_h), interpolation=cv2.INTER_LINEAR)
+        cv2.blur(small, (3, 3), dst=small) 
+        cv2.cvtColor(small, cv2.COLOR_BGR2HSV, dst=hsv_buf)
+
+        # Puck Mask
+        puck_mask = cv2.inRange(hsv_buf, puck_hsv_low, puck_hsv_high)
+        cv2.bitwise_and(puck_mask, roi_mask, dst=puck_mask)
+
+        # Mallet Mask
+        mallet_mask = cv2.inRange(hsv_buf, mallet_hsv_low, mallet_hsv_high)
+        cv2.bitwise_and(mallet_mask, roi_mask, dst=mallet_mask)
 
         puck_cnts, _ = cv2.findContours(
-            puck_mask_cpu, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            puck_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         mallet_cnts, _ = cv2.findContours(
-            mallet_mask_cpu, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            mallet_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         t_proc = time.perf_counter()
 
         # ---- Track puck (Kalman) ----
@@ -1797,9 +1803,9 @@ def _inner_loop(state, stop_event, ctrl, cap,
 
         # ---- Show masks ----
         if state.show_mask:
-            pm_full = cv2.resize(puck_mask_cpu, (w, h),
+            pm_full = cv2.resize(puck_mask, (w, h),
                                  interpolation=cv2.INTER_NEAREST)
-            mm_full = cv2.resize(mallet_mask_cpu, (w, h),
+            mm_full = cv2.resize(mallet_mask, (w, h),
                                  interpolation=cv2.INTER_NEAREST)
             mv = np.zeros((h, w, 3), dtype=np.uint8)
             mv[:, :, 1] = pm_full
