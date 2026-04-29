@@ -69,7 +69,7 @@ RED_ZONE_MARGINS = {"top": 30, "bottom": 30, "left": 30, "right": 30}
 
 # Speed & Ramping Constraints
 DEFAULT_SPEED = 15
-TARGET_SMOOTHING = 0.3    # Lower = smoother intercept calculation, but slight delay
+TARGET_SMOOTHING = 0.5    # Higher = faster response to target changes
 MOTOR_RAMP_RATE = 0.25    # Max percent velocity change per frame (prevents bolting)
 PROPORTIONAL_ZONE = 60.0  # Pixels away from target where robot starts slowing down
 DEADBAND_PX = 10          # Don't move if already within this many pixels
@@ -88,8 +88,8 @@ DEFAULT_GOAL_LENGTH = 200          # vertical extent of the goal opening
 # Trajectory / interception
 TRAJECTORY_DAMPING = 0.95
 TRAJECTORY_TIME = 2.0
-TRAJECTORY_STABLE_FRAMES = 3
-TRAJECTORY_STABLE_TOLERANCE = 10.0
+TRAJECTORY_STABLE_FRAMES = 1
+TRAJECTORY_STABLE_TOLERANCE = 40.0
 
 # Tracking
 LOST_THRESHOLD = 15
@@ -1231,6 +1231,13 @@ def _inner_loop(state, stop_event, ctrl, cap,
     last_time = time.perf_counter()
     frame_count = 0
 
+    # State hysteresis / anti-jitter
+    intercept_consecutive = 0
+    prev_defense_category = "GUARD"
+    goal_miss_frames = 0
+    last_intercept_y = DEFAULT_GOAL_Y
+    smoothed_push_forward = 0.0
+
     while not stop_event.is_set():
         t0 = time.perf_counter()
 
@@ -1527,16 +1534,42 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     goal_x, goal_y, goal_len,
                     table_left, table_right, table_top, table_bottom)
 
-                is_attacking = pvx < -10.0
+                # Lower confidence threshold for attack detection
+                is_attacking_now = pvx < -3.0
 
-                if goal_result is not None and is_attacking:
-                    # Puck WILL cross the goal line.
-                    intercept_x, intercept_y = goal_result
+                # Track threat frames for hysteresis
+                if goal_result is not None and is_attacking_now:
+                    goal_miss_frames = 0
+                    intercept_consecutive += 1
+                else:
+                    goal_miss_frames += 1
+                    intercept_consecutive = 0
+
+                # State lock: hard to enter intercept, easy to stay in it
+                was_intercept = prev_defense_category == "INTERCEPT"
+                if was_intercept:
+                    in_intercept = goal_miss_frames < 8
+                else:
+                    in_intercept = intercept_consecutive >= 2
+
+                if in_intercept:
+                    prev_defense_category = "INTERCEPT"
+
+                    if goal_result is not None:
+                        intercept_x, intercept_y = goal_result
+                        last_intercept_y = intercept_y
 
                     # V-Shape Forward push to cut off sharp angles
-                    dy_from_center = abs(intercept_y - goal_y)
-                    push_forward = min(50.0, dy_from_center * 0.4)
-                    target_x = min(safe_right, guard_x + push_forward)
+                    use_iy = last_intercept_y
+                    dy_from_center = abs(use_iy - goal_y)
+                    target_push = min(50.0, dy_from_center * 0.4)
+
+                    # Smooth push_forward to prevent X-axis snap/jitter
+                    if target_push > smoothed_push_forward:
+                        smoothed_push_forward = min(target_push, smoothed_push_forward + 12.0)
+                    else:
+                        smoothed_push_forward = max(target_push, smoothed_push_forward - 18.0)
+                    target_x = min(safe_right, guard_x + smoothed_push_forward)
 
                     # Re-predict where the path crosses this NEW forward line
                     rz_result = predict_intercept(
@@ -1544,7 +1577,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
                         target_x, goal_y, goal_len,
                         table_left, table_right, table_top, table_bottom)
 
-                    raw_target_y = rz_result[1] if rz_result is not None else intercept_y
+                    raw_target_y = rz_result[1] if rz_result is not None else use_iy
                     stable_target_y, is_stable = _update_stable_target(raw_target_y)
                     if stable_target_y is not None:
                         target_y = max(guard_top, min(guard_bottom, stable_target_y))
@@ -1552,6 +1585,11 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     defense_state = "INTERCEPT" if is_stable else "INTERCEPT HOLD"
 
                 else:
+                    prev_defense_category = "GUARD"
+                    intercept_consecutive = 0
+                    goal_miss_frames = 0
+                    smoothed_push_forward = 0.0
+
                     # Puck not on a trajectory to score: hold goal center Y
                     raw_target_y = goal_y
                     base_state = "GUARD_CENTER"
