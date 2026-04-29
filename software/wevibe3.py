@@ -69,7 +69,7 @@ RED_ZONE_MARGINS = {"top": 30, "bottom": 30, "left": 30, "right": 30}
 
 # Speed & Ramping Constraints
 DEFAULT_SPEED = 15
-TARGET_SMOOTHING = 0.5    # Higher = faster response to target changes
+TARGET_SMOOTHING = 0.3    # Lower = smoother intercept calculation, but slight delay
 MOTOR_RAMP_RATE = 0.25    # Max percent velocity change per frame (prevents bolting)
 PROPORTIONAL_ZONE = 60.0  # Pixels away from target where robot starts slowing down
 DEADBAND_PX = 10          # Don't move if already within this many pixels
@@ -88,8 +88,8 @@ DEFAULT_GOAL_LENGTH = 200          # vertical extent of the goal opening
 # Trajectory / interception
 TRAJECTORY_DAMPING = 0.95
 TRAJECTORY_TIME = 2.0
-TRAJECTORY_STABLE_FRAMES = 1
-TRAJECTORY_STABLE_TOLERANCE = 40.0
+TRAJECTORY_STABLE_FRAMES = 3
+TRAJECTORY_STABLE_TOLERANCE = 10.0
 
 # Tracking
 LOST_THRESHOLD = 15
@@ -1163,6 +1163,23 @@ def tracking_thread(state, stop_event):
     roi_mask = _build_roi_mask(proc_w, proc_h, w, h, roi, radius)
     last_roi_key = _roi_key(roi, radius)
 
+    # ---- GPU / OpenCL acceleration ----
+    USE_UMAT = False
+    try:
+        if cv2.ocl.haveOpenCL():
+            cv2.ocl.setUseOpenCL(True)
+            USE_UMAT = cv2.ocl.useOpenCL()
+            print(f"[GPU] OpenCL available: {USE_UMAT}")
+            if not USE_UMAT:
+                print("[GPU] OpenCL present but disabled – attempting to enable")
+                cv2.ocl.setUseOpenCL(True)
+                USE_UMAT = cv2.ocl.useOpenCL()
+        else:
+            print("[GPU] No OpenCL found – using CPU pipeline")
+    except Exception as e:
+        print(f"[GPU] OpenCL check failed ({e}) – using CPU pipeline")
+    umat_roi_mask = cv2.UMat(roi_mask) if USE_UMAT else None
+
     # ---- Kalman filters ----
     puck_kf = KalmanTracker(w // 2, h // 2)
     mallet_kf = KalmanTracker(w // 2, h // 4)
@@ -1231,12 +1248,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
     last_time = time.perf_counter()
     frame_count = 0
 
-    # State hysteresis / anti-jitter
-    intercept_consecutive = 0
-    prev_defense_category = "GUARD"
-    goal_miss_frames = 0
-    last_intercept_y = DEFAULT_GOAL_Y
-    smoothed_push_forward = 0.0
+    # Intercept smoothing
 
     while not stop_event.is_set():
         t0 = time.perf_counter()
@@ -1287,24 +1299,36 @@ def _inner_loop(state, stop_event, ctrl, cap,
         if cur_key != last_roi_key:
             roi_mask = _build_roi_mask(proc_w, proc_h, w, h, roi, radius)
             last_roi_key = cur_key
+            if USE_UMAT:
+                umat_roi_mask = cv2.UMat(roi_mask)
 
         # ---- Vision pipeline ----
-        small = cv2.resize(frame, (proc_w, proc_h), interpolation=cv2.INTER_LINEAR)
-        cv2.blur(small, (3, 3), dst=small) 
-        cv2.cvtColor(small, cv2.COLOR_BGR2HSV, dst=hsv_buf)
-
-        # Puck Mask
-        puck_mask = cv2.inRange(hsv_buf, puck_hsv_low, puck_hsv_high)
-        cv2.bitwise_and(puck_mask, roi_mask, dst=puck_mask)
-
-        # Mallet Mask
-        mallet_mask = cv2.inRange(hsv_buf, mallet_hsv_low, mallet_hsv_high)
-        cv2.bitwise_and(mallet_mask, roi_mask, dst=mallet_mask)
+        if USE_UMAT:
+            umat_frame = cv2.UMat(frame)
+            small = cv2.resize(umat_frame, (proc_w, proc_h), interpolation=cv2.INTER_LINEAR)
+            small = cv2.blur(small, (3, 3))
+            hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
+            puck_mask = cv2.inRange(hsv, puck_hsv_low, puck_hsv_high)
+            puck_mask = cv2.bitwise_and(puck_mask, umat_roi_mask)
+            mallet_mask = cv2.inRange(hsv, mallet_hsv_low, mallet_hsv_high)
+            mallet_mask = cv2.bitwise_and(mallet_mask, umat_roi_mask)
+            puck_mask_cpu = puck_mask.get()
+            mallet_mask_cpu = mallet_mask.get()
+        else:
+            small = cv2.resize(frame, (proc_w, proc_h), interpolation=cv2.INTER_LINEAR)
+            cv2.blur(small, (3, 3), dst=small)
+            cv2.cvtColor(small, cv2.COLOR_BGR2HSV, dst=hsv_buf)
+            puck_mask = cv2.inRange(hsv_buf, puck_hsv_low, puck_hsv_high)
+            cv2.bitwise_and(puck_mask, roi_mask, dst=puck_mask)
+            mallet_mask = cv2.inRange(hsv_buf, mallet_hsv_low, mallet_hsv_high)
+            cv2.bitwise_and(mallet_mask, roi_mask, dst=mallet_mask)
+            puck_mask_cpu = puck_mask
+            mallet_mask_cpu = mallet_mask
 
         puck_cnts, _ = cv2.findContours(
-            puck_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            puck_mask_cpu, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         mallet_cnts, _ = cv2.findContours(
-            mallet_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            mallet_mask_cpu, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         t_proc = time.perf_counter()
 
         # ---- Track puck (Kalman) ----
@@ -1534,42 +1558,16 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     goal_x, goal_y, goal_len,
                     table_left, table_right, table_top, table_bottom)
 
-                # Lower confidence threshold for attack detection
-                is_attacking_now = pvx < -3.0
+                is_attacking = pvx < -10.0
 
-                # Track threat frames for hysteresis
-                if goal_result is not None and is_attacking_now:
-                    goal_miss_frames = 0
-                    intercept_consecutive += 1
-                else:
-                    goal_miss_frames += 1
-                    intercept_consecutive = 0
-
-                # State lock: hard to enter intercept, easy to stay in it
-                was_intercept = prev_defense_category == "INTERCEPT"
-                if was_intercept:
-                    in_intercept = goal_miss_frames < 8
-                else:
-                    in_intercept = intercept_consecutive >= 2
-
-                if in_intercept:
-                    prev_defense_category = "INTERCEPT"
-
-                    if goal_result is not None:
-                        intercept_x, intercept_y = goal_result
-                        last_intercept_y = intercept_y
+                if goal_result is not None and is_attacking:
+                    # Puck WILL cross the goal line.
+                    intercept_x, intercept_y = goal_result
 
                     # V-Shape Forward push to cut off sharp angles
-                    use_iy = last_intercept_y
-                    dy_from_center = abs(use_iy - goal_y)
-                    target_push = min(50.0, dy_from_center * 0.4)
-
-                    # Smooth push_forward to prevent X-axis snap/jitter
-                    if target_push > smoothed_push_forward:
-                        smoothed_push_forward = min(target_push, smoothed_push_forward + 12.0)
-                    else:
-                        smoothed_push_forward = max(target_push, smoothed_push_forward - 18.0)
-                    target_x = min(safe_right, guard_x + smoothed_push_forward)
+                    dy_from_center = abs(intercept_y - goal_y)
+                    push_forward = min(50.0, dy_from_center * 0.4)
+                    target_x = min(safe_right, guard_x + push_forward)
 
                     # Re-predict where the path crosses this NEW forward line
                     rz_result = predict_intercept(
@@ -1577,7 +1575,7 @@ def _inner_loop(state, stop_event, ctrl, cap,
                         target_x, goal_y, goal_len,
                         table_left, table_right, table_top, table_bottom)
 
-                    raw_target_y = rz_result[1] if rz_result is not None else use_iy
+                    raw_target_y = rz_result[1] if rz_result is not None else intercept_y
                     stable_target_y, is_stable = _update_stable_target(raw_target_y)
                     if stable_target_y is not None:
                         target_y = max(guard_top, min(guard_bottom, stable_target_y))
@@ -1585,11 +1583,6 @@ def _inner_loop(state, stop_event, ctrl, cap,
                     defense_state = "INTERCEPT" if is_stable else "INTERCEPT HOLD"
 
                 else:
-                    prev_defense_category = "GUARD"
-                    intercept_consecutive = 0
-                    goal_miss_frames = 0
-                    smoothed_push_forward = 0.0
-
                     # Puck not on a trajectory to score: hold goal center Y
                     raw_target_y = goal_y
                     base_state = "GUARD_CENTER"
@@ -1788,9 +1781,9 @@ def _inner_loop(state, stop_event, ctrl, cap,
 
         # ---- Show masks ----
         if state.show_mask:
-            pm_full = cv2.resize(puck_mask, (w, h),
+            pm_full = cv2.resize(puck_mask_cpu, (w, h),
                                  interpolation=cv2.INTER_NEAREST)
-            mm_full = cv2.resize(mallet_mask, (w, h),
+            mm_full = cv2.resize(mallet_mask_cpu, (w, h),
                                  interpolation=cv2.INTER_NEAREST)
             mv = np.zeros((h, w, 3), dtype=np.uint8)
             mv[:, :, 1] = pm_full
@@ -1811,7 +1804,8 @@ def _inner_loop(state, stop_event, ctrl, cap,
         frame_count += 1
         if frame_count % 90 == 0:
             gt = "GAME" if game_on else "MAN"
-            print(f"\rFPS:{fps:.0f} P:{'Y' if puck_det else 'N'} "
+            print(f"\rFPS:{fps:.0f} cap:{cap_ms:.1f}ms proc:{proc_ms:.1f}ms "
+                  f"P:{'Y' if puck_det else 'N'} "
                   f"M:{'Y' if mallet_det else 'N'} "
                   f"[{gt}] {defense_state}   ", end='')
 
