@@ -33,7 +33,9 @@ GEAR_RADIUS_IN = 1.5
 STEPS_PER_REV = 360.0 / STEP_ANGLE_DEG            # 180
 GEAR_CIRC_IN = 2.0 * math.pi * GEAR_RADIUS_IN     # ~9.42"
 DIST_PER_STEP_IN = GEAR_CIRC_IN / STEPS_PER_REV   # ~0.0524"
-MAX_MOTOR_PCT = 75                                 # hard cap per motor
+MAX_MOTOR_PCT = 75                                 # hard cap per motor (diagonal)
+MAX_CARDINAL_PCT = 100                             # hard cap when X-only or Y-only
+CARDINAL_TOL = 0.5                                 # |v| below this treated as zero-axis
 
 
 class CoreXYController:
@@ -42,6 +44,10 @@ class CoreXYController:
     def __init__(self, port, baud_rate=115200, speed_pct=5):
         self.ser = serial.Serial(port, baud_rate)
         self.speed_pct = speed_pct
+        # Separate cap for pure cardinal (X-only or Y-only) motion.  In CoreXY
+        # both motors share the load on cardinal moves, so a higher cap is
+        # safe and significantly faster.  Defaults to the normal speed.
+        self.cardinal_speed_pct = speed_pct
         self._last_a = None
         self._last_b = None
 
@@ -89,9 +95,17 @@ class CoreXYController:
         raw_a = mvx + mvy
         raw_b = mvx - mvy
 
-        # Normalise so fastest motor = min(speed_pct, MAX_MOTOR_PCT)
+        # Detect pure-cardinal motion (one axis essentially zero).  In that
+        # case both motors run at equal magnitude and we can safely use a
+        # higher cap without overloading either motor.
+        is_cardinal = (abs(vx) < CARDINAL_TOL) or (abs(vy) < CARDINAL_TOL)
+
+        # Normalise so fastest motor = capped value.
         peak = max(abs(raw_a), abs(raw_b))
-        cap = min(self.speed_pct, MAX_MOTOR_PCT)
+        if is_cardinal:
+            cap = min(self.cardinal_speed_pct, MAX_CARDINAL_PCT)
+        else:
+            cap = min(self.speed_pct, MAX_MOTOR_PCT)
         scale = cap / peak if peak else 0
 
         a_pct = abs(raw_a) * scale

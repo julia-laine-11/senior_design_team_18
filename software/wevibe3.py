@@ -28,7 +28,7 @@ from tkinter import ttk
 from pathlib import Path
 from threading import Thread, RLock, Event
 
-from corexy_controller import CoreXYController, MAX_MOTOR_PCT
+from corexy_controller import CoreXYController, MAX_MOTOR_PCT, MAX_CARDINAL_PCT
 
 # ==================== CONFIGURATION ====================
 
@@ -69,6 +69,7 @@ RED_ZONE_MARGINS = {"top": 30, "bottom": 30, "left": 30, "right": 30}
 
 # Speed & Ramping Constraints
 DEFAULT_SPEED = 15
+DEFAULT_CARDINAL_SPEED = 90  # Higher cap for pure X- or Y-only motion (cardinal boost)
 TARGET_SMOOTHING = 0.5    # Higher = faster response to intercept changes
 MOTOR_RAMP_RATE = 0.25    # Max percent velocity change per frame (prevents bolting)
 PROPORTIONAL_ZONE = 60.0  # Pixels away from target where robot starts slowing down
@@ -100,6 +101,27 @@ KEY_RELEASE_TIMEOUT = 0.20
 
 # GUI
 GUI_UPDATE_MS = 100
+
+# ---- GUI Theme (Catppuccin-Mocha-inspired dark palette) ----
+THEME = {
+    "bg":          "#1e1e2e",  # base background
+    "bg_alt":      "#181825",  # darker (notebook, tab bar)
+    "surface":     "#313244",  # surface (frame headers, troughs)
+    "surface_alt": "#45475a",  # raised surface
+    "text":        "#cdd6f4",  # primary text
+    "text_dim":    "#a6adc8",  # secondary text
+    "accent":      "#89b4fa",  # blue accent
+    "accent_alt":  "#b4befe",  # lighter blue
+    "good":        "#a6e3a1",  # green (game ON, OK)
+    "warn":        "#f9e2af",  # yellow
+    "bad":         "#f38ba8",  # red (red zone, OFF)
+    "info":        "#94e2d5",  # teal
+}
+FONT_BODY  = ("Segoe UI", 10)
+FONT_BOLD  = ("Segoe UI", 10, "bold")
+FONT_MONO  = ("Consolas", 9)
+FONT_MONO_BOLD = ("Consolas", 10, "bold")
+FONT_TITLE = ("Segoe UI", 11, "bold")
 
 # Runtime settings
 CONFIG_PATH = Path(__file__).with_name("defensive_mode_config.json")
@@ -400,6 +422,9 @@ class GameState:
         self.speed = _as_int(
             settings.get("speed", DEFAULT_SPEED),
             DEFAULT_SPEED, 1, 90)
+        self.cardinal_speed = _as_int(
+            settings.get("cardinal_speed", DEFAULT_CARDINAL_SPEED),
+            DEFAULT_CARDINAL_SPEED, 1, MAX_CARDINAL_PCT)
         self.home_x = _as_int(
             settings.get("home_x", DEFAULT_HOME_X),
             DEFAULT_HOME_X, 0, FRAME_WIDTH)
@@ -469,6 +494,7 @@ class GameState:
             "mallet_hsv_high": list(self.mallet_hsv_high),
             "mallet_min_radius": self.mallet_min_radius,
             "speed": self.speed,
+            "cardinal_speed": self.cardinal_speed,
             "home_x": self.home_x,
             "home_y": self.home_y,
             "goal_x": self.goal_x,
@@ -562,6 +588,16 @@ class GameState:
             self.speed = int(float(val))
             self.save_settings()
 
+    def get_cardinal_speed(self):
+        with self.lock:
+            return self.cardinal_speed
+
+    def set_cardinal_speed(self, val):
+        with self.lock:
+            self.cardinal_speed = _as_int(
+                val, self.cardinal_speed, 1, MAX_CARDINAL_PCT)
+            self.save_settings()
+
     def get_goal(self):
         with self.lock:
             return self.goal_x, self.goal_y, self.goal_length
@@ -638,10 +674,82 @@ class ControlGUI:
         self.fw = frame_w
         self.fh = frame_h
         self.root = tk.Tk()
-        self.root.title("Defense Mode Controls")
-        self.root.geometry("470x780")
+        self.root.title("⬢  Defense Mode Controls")
+        self.root.geometry("540x860")
+        self.root.minsize(500, 700)
+        self.root.configure(bg=THEME["bg"])
+        self._apply_theme()
         self._build()
         self._start_update()
+
+    def _apply_theme(self):
+        """Apply a modern dark theme to all ttk widgets."""
+        style = ttk.Style(self.root)
+        # 'clam' theme accepts the most colour customisations.
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+
+        T = THEME
+        style.configure(".",
+                        background=T["bg"], foreground=T["text"],
+                        fieldbackground=T["surface"], font=FONT_BODY)
+        style.configure("TFrame", background=T["bg"])
+        style.configure("TLabel", background=T["bg"], foreground=T["text"])
+        style.configure("Dim.TLabel", background=T["bg"], foreground=T["text_dim"])
+        style.configure("Title.TLabel", background=T["bg"],
+                        foreground=T["accent"], font=FONT_TITLE)
+        style.configure("Good.TLabel", background=T["bg"], foreground=T["good"], font=FONT_BOLD)
+        style.configure("Bad.TLabel",  background=T["bg"], foreground=T["bad"],  font=FONT_BOLD)
+        style.configure("Warn.TLabel", background=T["bg"], foreground=T["warn"], font=FONT_BOLD)
+        style.configure("Info.TLabel", background=T["bg"], foreground=T["info"], font=FONT_MONO)
+        style.configure("Mono.TLabel", background=T["bg"], foreground=T["text"], font=FONT_MONO)
+
+        # LabelFrame – darker surface with accent header
+        style.configure("TLabelframe",
+                        background=T["bg"], bordercolor=T["surface_alt"],
+                        relief="solid", borderwidth=1)
+        style.configure("TLabelframe.Label",
+                        background=T["bg"], foreground=T["accent"],
+                        font=FONT_BOLD)
+
+        # Notebook
+        style.configure("TNotebook",
+                        background=T["bg_alt"], borderwidth=0, tabmargins=[2, 4, 2, 0])
+        style.configure("TNotebook.Tab",
+                        background=T["surface"], foreground=T["text_dim"],
+                        padding=[14, 7], font=FONT_BOLD,
+                        borderwidth=0)
+        style.map("TNotebook.Tab",
+                  background=[("selected", T["accent"])],
+                  foreground=[("selected", T["bg"])],
+                  expand=[("selected", [1, 1, 1, 0])])
+
+        # Scale (slider)
+        style.configure("Horizontal.TScale",
+                        background=T["bg"], troughcolor=T["surface"],
+                        bordercolor=T["bg"], lightcolor=T["accent"],
+                        darkcolor=T["accent"])
+        style.map("Horizontal.TScale",
+                  background=[("active", T["accent_alt"])])
+
+        # Button
+        style.configure("TButton",
+                        background=T["accent"], foreground=T["bg"],
+                        font=FONT_BOLD, padding=(12, 6),
+                        borderwidth=0, relief="flat")
+        style.map("TButton",
+                  background=[("active", T["accent_alt"]),
+                              ("pressed", T["accent_alt"])])
+
+        # Checkbutton
+        style.configure("TCheckbutton",
+                        background=T["bg"], foreground=T["text"],
+                        focuscolor=T["bg"])
+        style.map("TCheckbutton",
+                  background=[("active", T["bg"])],
+                  foreground=[("active", T["accent"])])
 
     def _build(self):
         s = self.state
@@ -652,6 +760,7 @@ class ControlGUI:
         mallet_hsv_low, mallet_hsv_high = s.get_mallet_hsv()
         mallet_min_radius = s.get_mallet_min_radius()
         speed_default = s.get_speed()
+        cardinal_default = s.get_cardinal_speed()
         goal_x, goal_y, goal_length = s.get_goal()
         home_x, home_y = s.get_home()
         with s.lock:
@@ -659,40 +768,80 @@ class ControlGUI:
             show_roi = s.show_roi
             show_trajectory = s.show_trajectory
 
+        # ---- App header ----
+        header = ttk.Frame(self.root)
+        header.pack(fill="x", padx=10, pady=(10, 4))
+        ttk.Label(header, text="⬢  AIR HOCKEY DEFENSE",
+                  style="Title.TLabel").pack(side="left")
+        ttk.Label(header, text="v3 · wevibe3",
+                  style="Dim.TLabel").pack(side="right")
+
         nb = ttk.Notebook(self.root)
-        nb.pack(fill="both", expand=True, padx=5, pady=5)
+        nb.pack(fill="both", expand=True, padx=8, pady=(2, 8))
 
         # ===== TAB 1: GAME =====
-        game_tab = ttk.Frame(nb)
-        nb.add(game_tab, text="Game")
+        game_tab = ttk.Frame(nb, padding=6)
+        nb.add(game_tab, text="  Game  ")
 
-        gf = ttk.LabelFrame(game_tab, text="Game Mode", padding=8)
-        gf.pack(fill="x", padx=8, pady=4)
-        self.game_label = ttk.Label(
-            gf, text="OFF  (press G in camera window)",
-            font=("Courier", 11, "bold"))
-        self.game_label.pack()
-        
-        self.clear_label = ttk.Label(
-            gf, text="Clear Mode: OFF  (press A)", font=("Courier", 9))
-        self.clear_label.pack()
-        
-        self.defense_label = ttk.Label(
-            gf, text="State: IDLE", font=("Courier", 9))
-        self.defense_label.pack()
+        # ---- Status pill block ----
+        gf = ttk.LabelFrame(game_tab, text="Status", padding=10)
+        gf.pack(fill="x", padx=4, pady=4)
 
-        # Max speed
+        row1 = ttk.Frame(gf); row1.pack(fill="x", pady=(0, 2))
+        ttk.Label(row1, text="Game Mode:", style="Dim.TLabel").pack(side="left")
+        self.game_label = ttk.Label(row1, text="OFF", style="Bad.TLabel")
+        self.game_label.pack(side="left", padx=(8, 0))
+        ttk.Label(row1, text="  (press G in camera window)",
+                  style="Dim.TLabel").pack(side="left")
+
+        row2 = ttk.Frame(gf); row2.pack(fill="x", pady=2)
+        ttk.Label(row2, text="Clear Mode:", style="Dim.TLabel").pack(side="left")
+        self.clear_label = ttk.Label(row2, text="OFF", style="Bad.TLabel")
+        self.clear_label.pack(side="left", padx=(8, 0))
+        ttk.Label(row2, text="  (press A)",
+                  style="Dim.TLabel").pack(side="left")
+
+        row3 = ttk.Frame(gf); row3.pack(fill="x", pady=2)
+        ttk.Label(row3, text="Defense:", style="Dim.TLabel").pack(side="left")
+        self.defense_label = ttk.Label(row3, text="IDLE", style="Info.TLabel")
+        self.defense_label.pack(side="left", padx=(8, 0))
+
+        # ---- Speed sliders ----
         spd_f = ttk.LabelFrame(
-            game_tab, text="Max Speed (cap 90%)", padding=8)
-        spd_f.pack(fill="x", padx=8, pady=4)
+            game_tab, text="Speed", padding=10)
+        spd_f.pack(fill="x", padx=4, pady=4)
+
+        # Diagonal / blended max speed
+        srow = ttk.Frame(spd_f); srow.pack(fill="x", pady=(0, 2))
+        ttk.Label(srow, text="Max Speed (diagonal cap)",
+                  style="TLabel").pack(side="left")
+        self.speed_val = ttk.Label(
+            srow, text=f"{speed_default}%", style="Mono.TLabel")
+        self.speed_val.pack(side="right")
         self.speed_slider = ttk.Scale(
             spd_f, from_=1, to=90, orient="horizontal")
         self.speed_slider.set(speed_default)
-        self.speed_slider.pack(fill="x")
+        self.speed_slider.pack(fill="x", pady=(0, 8))
         self.speed_slider.configure(command=lambda v: s.set_speed(v))
-        self.speed_val = ttk.Label(
-            spd_f, text=f"{speed_default}%", font=("Courier", 10))
-        self.speed_val.pack()
+
+        # Cardinal-only boost (X- or Y-only motion)
+        crow = ttk.Frame(spd_f); crow.pack(fill="x", pady=(2, 2))
+        ttk.Label(crow, text="Cardinal Boost (X / Y only)",
+                  style="TLabel").pack(side="left")
+        self.cardinal_val = ttk.Label(
+            crow, text=f"{cardinal_default}%", style="Mono.TLabel")
+        self.cardinal_val.pack(side="right")
+        self.cardinal_slider = ttk.Scale(
+            spd_f, from_=1, to=MAX_CARDINAL_PCT, orient="horizontal")
+        self.cardinal_slider.set(cardinal_default)
+        self.cardinal_slider.pack(fill="x")
+        self.cardinal_slider.configure(
+            command=lambda v: s.set_cardinal_speed(v))
+        ttk.Label(spd_f,
+                  text="Higher cap when the mallet moves only along X or Y "
+                       "— both motors share the load on cardinal moves.",
+                  style="Dim.TLabel", wraplength=460,
+                  justify="left").pack(fill="x", pady=(4, 0))
 
         # Goal (vertical line on the left side)
         goal_f = ttk.LabelFrame(game_tab, text="Goal (Yellow, Vertical)", padding=5)
@@ -869,7 +1018,7 @@ class ControlGUI:
         self.mallet_rad_sl.pack(fill="x")
         self.mallet_rad_sl.configure(command=lambda v: s.set_mallet_min_radius(v))
         self.mallet_rad_val = ttk.Label(
-            mrad_f, text=f"{mallet_min_radius}px", font=("Courier", 10))
+            mrad_f, text=f"{mallet_min_radius}px", style="Mono.TLabel")
         self.mallet_rad_val.pack(anchor="e")
 
         # Display options
@@ -896,45 +1045,45 @@ class ControlGUI:
         nb.add(status_tab, text="Status")
 
         # Tracking results
-        tf = ttk.LabelFrame(status_tab, text="Tracking", padding=5)
+        tf = ttk.LabelFrame(status_tab, text="Tracking", padding=8)
         tf.pack(fill="x", padx=8, pady=4)
-        self.fps_label = ttk.Label(tf, text="FPS: --", font=("Courier", 9))
+        self.fps_label = ttk.Label(tf, text="FPS: --", style="Mono.TLabel")
         self.fps_label.pack(anchor="w")
-        self.puck_label = ttk.Label(tf, text="Puck: --", font=("Courier", 9))
+        self.puck_label = ttk.Label(tf, text="Puck: --", style="Mono.TLabel")
         self.puck_label.pack(anchor="w")
         self.mallet_label = ttk.Label(
-            tf, text="Mallet: --", font=("Courier", 9))
+            tf, text="Mallet: --", style="Mono.TLabel")
         self.mallet_label.pack(anchor="w")
         self.kalman_label = ttk.Label(
-            tf, text="Kalman: puck+mallet ON", font=("Courier", 9, "bold"))
+            tf, text="Kalman: puck+mallet ON", style="Info.TLabel")
         self.kalman_label.pack(anchor="w")
         self.motor_label = ttk.Label(
-            tf, text="Motors: --", font=("Courier", 9))
+            tf, text="Motors: --", style="Mono.TLabel")
         self.motor_label.pack(anchor="w")
         self.zone_label = ttk.Label(
-            tf, text="Zone: OK", font=("Courier", 9))
+            tf, text="Zone: OK", style="Good.TLabel")
         self.zone_label.pack(anchor="w")
-        
+
         # --- STM32 Incoming UART Data ---
-        stm_f = ttk.LabelFrame(status_tab, text="STM32 Hardware State (UART RX)", padding=5)
+        stm_f = ttk.LabelFrame(status_tab, text="STM32 Hardware State (UART RX)", padding=8)
         stm_f.pack(fill="x", padx=8, pady=4)
-        self.stm_state_label = ttk.Label(stm_f, text="State: --", font=("Courier", 9))
+        self.stm_state_label = ttk.Label(stm_f, text="State: --", style="Mono.TLabel")
         self.stm_state_label.pack(anchor="w")
-        self.stm_score_label = ttk.Label(stm_f, text="Score - P: 0 | Bot: 0", font=("Courier", 9, "bold"))
+        self.stm_score_label = ttk.Label(stm_f, text="Score - P: 0 | Bot: 0", style="Info.TLabel")
         self.stm_score_label.pack(anchor="w")
 
         # Box readouts
-        ro = ttk.LabelFrame(status_tab, text="Box Readouts (px)", padding=5)
+        ro = ttk.LabelFrame(status_tab, text="Box Readouts (px)", padding=8)
         ro.pack(fill="x", padx=8, pady=4)
-        self.roi_ro = ttk.Label(ro, text="ROI: --", font=("Courier", 8))
+        self.roi_ro = ttk.Label(ro, text="ROI: --", style="Mono.TLabel")
         self.roi_ro.pack(anchor="w")
-        self.box_ro = ttk.Label(ro, text="Box: --", font=("Courier", 8))
+        self.box_ro = ttk.Label(ro, text="Box: --", style="Mono.TLabel")
         self.box_ro.pack(anchor="w")
-        self.red_ro = ttk.Label(ro, text="Red: --", font=("Courier", 8))
+        self.red_ro = ttk.Label(ro, text="Red: --", style="Mono.TLabel")
         self.red_ro.pack(anchor="w")
-        self.goal_ro = ttk.Label(ro, text="Goal: --", font=("Courier", 8))
+        self.goal_ro = ttk.Label(ro, text="Goal: --", style="Mono.TLabel")
         self.goal_ro.pack(anchor="w")
-        self.home_ro = ttk.Label(ro, text="Home: --", font=("Courier", 8))
+        self.home_ro = ttk.Label(ro, text="Home: --", style="Mono.TLabel")
         self.home_ro.pack(anchor="w")
 
         # Print button
@@ -1042,8 +1191,9 @@ class ControlGUI:
                 clear_on = s.clear_mode
                 dstate = s.defense_state
                 spd = s.speed
+                cardinal_spd = s.cardinal_speed
                 mallet_min_radius = s.mallet_min_radius
-                
+
                 # Fetch STM32 State values
                 stm_playing = s.stm_playing
                 stm_mode = s.stm_mode
@@ -1051,26 +1201,45 @@ class ControlGUI:
                 stm_bscore = s.stm_bscore
 
             self.fps_label.config(text=f"FPS: {fps:.0f}")
-            ps = "Y" if pdet else "N"
-            ms = "Y" if mdet else "N"
+            ps = "✓" if pdet else "✗"
+            ms = "✓" if mdet else "✗"
             self.puck_label.config(
-                text=f"Puck: ({int(px)},{int(py)}) "
-                     f"{pspd:.2f}m/s [{ps}]")
+                text=f"Puck   ({int(px):>3},{int(py):>3})  "
+                     f"{pspd:5.2f} m/s  [{ps}]")
             self.mallet_label.config(
-                text=f"Mallet: ({int(mx)},{int(my)}) "
-                     f"r={int(mr)} [{ms}]")
+                text=f"Mallet ({int(mx):>3},{int(my):>3})  "
+                     f"r={int(mr):>2}        [{ms}]")
             self.kalman_label.config(text="Kalman: puck+mallet ON")
             self.motor_label.config(text=f"Motors: {minfo}")
-            self.zone_label.config(
-                text="Zone: !! RED !!" if in_red else "Zone: OK")
+            if in_red:
+                self.zone_label.config(text="❖ RED ZONE ❖", style="Bad.TLabel")
+            else:
+                self.zone_label.config(text="● Zone OK", style="Good.TLabel")
             self.speed_val.config(text=f"{spd}%")
+            self.cardinal_val.config(text=f"{cardinal_spd}%")
             self.mallet_rad_val.config(text=f"{mallet_min_radius}px")
 
-            # Game & Clear Mode
-            self.game_label.config(text="GAME ON  (G to toggle)" if game else "OFF  (G to toggle)")
-            self.clear_label.config(text="Clear Mode: ON" if clear_on else "Clear Mode: OFF (press A)")
-            
-            self.defense_label.config(text=f"State: {dstate}")
+            # Game & Clear Mode pills
+            if game:
+                self.game_label.config(text="● ON", style="Good.TLabel")
+            else:
+                self.game_label.config(text="○ OFF", style="Bad.TLabel")
+            if clear_on:
+                self.clear_label.config(text="● ON", style="Good.TLabel")
+            else:
+                self.clear_label.config(text="○ OFF", style="Bad.TLabel")
+
+            # Defense state colour by category
+            d_upper = dstate.upper()
+            if "INTERCEPT" in d_upper or "CLEAR" in d_upper:
+                d_style = "Warn.TLabel"
+            elif "SAFETY" in d_upper or "RED" in d_upper:
+                d_style = "Bad.TLabel"
+            elif "HOME" in d_upper or "WAITING" in d_upper:
+                d_style = "Good.TLabel"
+            else:
+                d_style = "Info.TLabel"
+            self.defense_label.config(text=dstate, style=d_style)
             
             # --- Update STM32 Status panel ---
             status_text = "PLAYING" if stm_playing else "MENU/IDLE"
@@ -1293,6 +1462,7 @@ def _inner_loop(state, stop_event, ctrl, reader,
 
         # ---- Read GUI parameters ----
         cur_speed = state.get_speed()
+        cur_cardinal_speed = state.get_cardinal_speed()
         roi, radius = state.get_table_roi()
         box_margins = state.get_box_margins()
         red_margins = state.get_red_margins()
@@ -1301,13 +1471,14 @@ def _inner_loop(state, stop_event, ctrl, reader,
         mallet_min_radius = state.get_mallet_min_radius()
         goal_x, goal_y, goal_len = state.get_goal()
         home_x, home_y = state.get_home()
-        
+
         game_on = state.is_game_enabled()
         clear_on = state.clear_mode
 
         # Push params to motor controller
         if ctrl:
             ctrl.speed_pct = cur_speed
+            ctrl.cardinal_speed_pct = cur_cardinal_speed
             ctrl.mallet_box = [
                 box_margins["left"], box_margins["top"],
                 w - box_margins["right"], h - box_margins["bottom"]]
@@ -1572,13 +1743,23 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     defense_state = "HOME"
 
             else:
-                # Puck visible – predict if it will reach our defense line
+                # Puck visible – predict if it will reach our defense line.
+                # Predict at the guard line first (mallet face contact point).
                 goal_result = predict_intercept(
                     px, py, pvx, pvy,
                     defense_line_x, goal_y, goal_len,
                     table_left, table_right, table_top, table_bottom)
 
-                is_attacking = pvx < -3.0  # lower threshold for fast reactions
+                # Engage earlier when puck is close to our side (proximity
+                # boost lowers the velocity threshold needed to react).
+                puck_dist_from_line = px - defense_line_x
+                if puck_dist_from_line < 120:
+                    attack_thresh = -1.5  # very twitchy when puck is close
+                elif puck_dist_from_line < 240:
+                    attack_thresh = -2.5
+                else:
+                    attack_thresh = -3.5
+                is_attacking = pvx < attack_thresh
 
                 if goal_result is not None and is_attacking:
                     intercept_x, intercept_y = goal_result
@@ -1612,9 +1793,12 @@ def _inner_loop(state, stop_event, ctrl, reader,
                         defense_state = "INTERCEPT" if is_stable else "INTERCEPT HOLD"
 
                 elif is_puck_our_side:
-                    # Puck is on our side but not attacking fast:
-                    # track its Y so we are already aligned.
-                    raw_target_y = py
+                    # Puck on our side but not attacking fast.  Lead-track
+                    # its predicted Y so we close the gap before it commits.
+                    # Lead time scales with how close the puck is.
+                    lead_time = max(0.05, min(0.25,
+                                              (px - defense_line_x) * 0.003))
+                    raw_target_y = py + pvy * lead_time
                     stable_target_y, is_stable = _update_stable_target(raw_target_y)
                     if stable_target_y is not None:
                         target_y = max(guard_top, min(guard_bottom, stable_target_y))
@@ -1622,9 +1806,20 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     defense_state = "TRACKING" if is_stable else "TRACKING HOLD"
 
                 else:
-                    # Puck on opponent's side – guard center
-                    raw_target_y = goal_y
-                    base_state = "GUARD_CENTER"
+                    # Puck on opponent's side.  If it's moving toward us at
+                    # all, pre-align Y to its current position so we have a
+                    # head start.  Otherwise camp the goal centre.
+                    moving_toward_us = pvx < -0.5
+                    if moving_toward_us:
+                        # Blend puck Y with goal centre so we don't chase
+                        # fakes too aggressively when the puck is far away.
+                        far_blend = max(0.3, min(1.0,
+                                                 1.0 - (px - w / 2.0) / (w / 2.0)))
+                        raw_target_y = goal_y + far_blend * (py - goal_y)
+                        base_state = "PRE_ALIGN"
+                    else:
+                        raw_target_y = goal_y
+                        base_state = "GUARD_CENTER"
 
                     stable_target_y, is_stable = _update_stable_target(raw_target_y)
                     if stable_target_y is not None:
