@@ -473,22 +473,27 @@ class GameState:
         self.save_settings()
 
     def update_stm_state(self, playing, mode, pscore, bscore):
-        """Update STM32 telemetry. Auto-toggles game mode on transitions
-        into / out of "playing + BOT" so the laptop follows the
-        microcontroller automatically. Manual G key still overrides:
-        a manual toggle remains in effect until the STM32 transitions
-        again."""
+        """Update STM32 telemetry. Auto-enables game mode when the
+        microcontroller enters playing+BOT, and auto-disables it ONLY
+        when the microcontroller leaves the playing state entirely
+        (menu/idle). Score-only updates and brief mode flips do not
+        toggle the game, so a goal won't kick us out of game mode.
+        Manual G key still overrides at any time."""
         with self.lock:
-            prev_playing_bot = self.stm_playing and self.stm_mode == "BOT"
+            prev_playing = self.stm_playing
+            prev_playing_bot = prev_playing and self.stm_mode == "BOT"
             self.stm_playing = playing
             self.stm_mode = mode
             self.stm_pscore = pscore
             self.stm_bscore = bscore
             new_playing_bot = playing and mode == "BOT"
-            # Only act on transitions, so a manual G override sticks
-            # until the STM32 state itself changes.
-            if new_playing_bot != prev_playing_bot:
-                self.game_enabled = new_playing_bot
+
+            # Rising edge of playing+BOT: start the game.
+            if new_playing_bot and not prev_playing_bot:
+                self.game_enabled = True
+            # Falling edge of "playing" (any mode -> menu/idle): stop.
+            elif prev_playing and not playing:
+                self.game_enabled = False
 
     # ---- Getters / setters (lock-protected) ----
 
