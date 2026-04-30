@@ -473,11 +473,22 @@ class GameState:
         self.save_settings()
 
     def update_stm_state(self, playing, mode, pscore, bscore):
+        """Update STM32 telemetry. Auto-toggles game mode on transitions
+        into / out of "playing + BOT" so the laptop follows the
+        microcontroller automatically. Manual G key still overrides:
+        a manual toggle remains in effect until the STM32 transitions
+        again."""
         with self.lock:
+            prev_playing_bot = self.stm_playing and self.stm_mode == "BOT"
             self.stm_playing = playing
             self.stm_mode = mode
             self.stm_pscore = pscore
             self.stm_bscore = bscore
+            new_playing_bot = playing and mode == "BOT"
+            # Only act on transitions, so a manual G override sticks
+            # until the STM32 state itself changes.
+            if new_playing_bot != prev_playing_bot:
+                self.game_enabled = new_playing_bot
 
     # ---- Getters / setters (lock-protected) ----
 
@@ -773,7 +784,7 @@ class ControlGUI:
         header.pack(fill="x", padx=10, pady=(10, 4))
         ttk.Label(header, text="⬢  AIR HOCKEY DEFENSE",
                   style="Title.TLabel").pack(side="left")
-        ttk.Label(header, text="v3 · wevibe3",
+        ttk.Label(header, text="v3 · AutonAir",
                   style="Dim.TLabel").pack(side="right")
 
         nb = ttk.Notebook(self.root)
@@ -1394,6 +1405,11 @@ def tracking_thread(state, stop_event):
     print("  Numpad / WASD / Arrows = Manual drive (game OFF)")
     print("  Q / ESC = Quit  |  S = Screenshot")
     print("-" * 60)
+
+    # Create resizable windows. WINDOW_NORMAL lets the user drag the
+    # corners; the camera frame is automatically rescaled to fit.
+    cv2.namedWindow("Defense Mode", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Defense Mode", w, h)
 
     try:
         _inner_loop(state, stop_event, ctrl, reader,
@@ -2027,10 +2043,16 @@ def _inner_loop(state, stop_event, ctrl, reader,
             cv2.putText(mv, "Puck: Green                   Mallet: Orange", (10, 25),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                         (255, 255, 255), 1)
+            # Ensure the Masks window is resizable (idempotent: a no-op
+            # after the first call). Image is auto-fitted to the window.
+            if cv2.getWindowProperty("Masks", cv2.WND_PROP_VISIBLE) < 1:
+                cv2.namedWindow("Masks", cv2.WINDOW_NORMAL)
+                cv2.resizeWindow("Masks", w, h)
             cv2.imshow("Masks", mv)
         else:
             try:
-                cv2.destroyWindow("Masks")
+                if cv2.getWindowProperty("Masks", cv2.WND_PROP_VISIBLE) >= 1:
+                    cv2.destroyWindow("Masks")
             except cv2.error:
                 pass
 
