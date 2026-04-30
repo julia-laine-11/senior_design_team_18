@@ -243,7 +243,7 @@ def find_circle(contours, min_r, max_r, pred_xy=None):
     return best
 
 
-def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02, max_bounces=1):
+def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=3.0, dt=0.02, max_bounces=3):
     """Predict puck trajectory with wall bounces. Returns list of (x,y)."""
     points = [(int(x), int(y))]
     left, right = bounds['left'], w - bounds['right']
@@ -280,7 +280,7 @@ def predict_trajectory(x, y, vx, vy, w, h, bounds, max_t=2.0, dt=0.02, max_bounc
 
 def predict_intercept(px, py, pvx, pvy, line_x, goal_y, goal_len,
                       table_left, table_right, table_top, table_bottom,
-                      max_t=2.0, dt=0.02, max_bounces=1):
+                      max_t=3.0, dt=0.02, max_bounces=3):
     """Predict where the puck crosses a vertical line (x = line_x)."""
     x, y = float(px), float(py)
     vx, vy = float(pvx), float(pvy)
@@ -1539,61 +1539,57 @@ def _inner_loop(state, stop_event, ctrl, reader,
             _reset_target_stability()
 
         elif game_on:
-            guard_x = safe_left
-            
+            # Defend at the goal line, clamped to the safe zone.
+            guard_x = max(safe_left, goal_x)
+            defense_line_x = guard_x + mr  # where the mallet face will contact
+
             # --- Check CLEAR MODE conditions first ---
             is_puck_our_side = puck_det and px < (w / 2.0)
-            is_puck_stopped = puck_det and puck_speed < 0.05  # Slow enough to be considered dead
-            
+            is_puck_stopped = puck_det and puck_speed < 0.05
+
             if clear_on and is_puck_our_side and is_puck_stopped:
                 _reset_target_stability()
                 defense_state = "CLEARING"
-                
-                # Check if we are already in position behind (left of) the puck to strike right
+
                 if mx < px - 15 and abs(my - py) < 30:
-                    # Strike straight through to the right
                     target_x = min(safe_right, px + 150)
                     target_y = py
                 else:
-                    # Navigate to get behind it
                     target_x = max(safe_left, px - 50)
                     target_y = py
-                    
+
                 target_vx, target_vy = _drive_to(target_x, target_y)
 
             # ---- Normal Autonomous Defense ----
             elif not puck_det or (px < 0 and py < 0):
-                # Puck lost → go home
                 defense_state = "HOMING"
                 _reset_target_stability()
                 target_vx, target_vy = _drive_to(home_x, home_y, HOME_THRESHOLD)
-                
+
                 target_home = _safe_target(home_x, home_y)
                 home_dist = ((target_home[0] - mx) ** 2 + (target_home[1] - my) ** 2) ** 0.5
                 if home_dist <= HOME_THRESHOLD:
                     defense_state = "HOME"
 
             else:
-                # Puck visible – check if it will reach the goal
+                # Puck visible – predict if it will reach our defense line
                 goal_result = predict_intercept(
                     px, py, pvx, pvy,
-                    goal_x, goal_y, goal_len,
+                    defense_line_x, goal_y, goal_len,
                     table_left, table_right, table_top, table_bottom)
 
-                is_attacking = pvx < -7.0
+                is_attacking = pvx < -3.0  # lower threshold for fast reactions
 
                 if goal_result is not None and is_attacking:
-                    # Puck WILL cross the goal line.
                     intercept_x, intercept_y = goal_result
 
-                    # V-Shape Forward push to cut off sharp angles
+                    # V-Shape forward push: base + angle + speed
                     dy_from_center = abs(intercept_y - goal_y)
-                    push_forward = min(60.0, dy_from_center * 0.5)
+                    speed_bonus = min(30.0, abs(pvx) * 1.2)
+                    push_forward = min(80.0, 15.0 + dy_from_center * 0.4 + speed_bonus)
                     target_x = min(safe_right, guard_x + push_forward)
 
                     # Re-predict where the path crosses the mallet face
-                    # (target_x + mr) so the puck hits the center of the
-                    # mallet, not a top/bottom edge.
                     face_x = target_x + mr
                     rz_result = predict_intercept(
                         px, py, pvx, pvy,
@@ -1601,14 +1597,32 @@ def _inner_loop(state, stop_event, ctrl, reader,
                         table_left, table_right, table_top, table_bottom)
 
                     raw_target_y = rz_result[1] if rz_result is not None else intercept_y
+
+                    # Fast pucks: skip smoothing to reduce lag
+                    puck_is_fast = abs(pvx) > 8.0
+                    if puck_is_fast:
+                        target_y = max(guard_top, min(guard_bottom, raw_target_y))
+                        target_vx, target_vy = _drive_to(target_x, target_y)
+                        defense_state = "INTERCEPT FAST"
+                    else:
+                        stable_target_y, is_stable = _update_stable_target(raw_target_y)
+                        if stable_target_y is not None:
+                            target_y = max(guard_top, min(guard_bottom, stable_target_y))
+                            target_vx, target_vy = _drive_to(target_x, target_y)
+                        defense_state = "INTERCEPT" if is_stable else "INTERCEPT HOLD"
+
+                elif is_puck_our_side:
+                    # Puck is on our side but not attacking fast:
+                    # track its Y so we are already aligned.
+                    raw_target_y = py
                     stable_target_y, is_stable = _update_stable_target(raw_target_y)
                     if stable_target_y is not None:
                         target_y = max(guard_top, min(guard_bottom, stable_target_y))
-                        target_vx, target_vy = _drive_to(target_x, target_y)
-                    defense_state = "INTERCEPT" if is_stable else "INTERCEPT HOLD"
+                        target_vx, target_vy = _drive_to(guard_x, target_y)
+                    defense_state = "TRACKING" if is_stable else "TRACKING HOLD"
 
                 else:
-                    # Puck not on a trajectory to score: hold goal center Y
+                    # Puck on opponent's side – guard center
                     raw_target_y = goal_y
                     base_state = "GUARD_CENTER"
 
