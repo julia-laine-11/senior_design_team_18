@@ -2064,27 +2064,20 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     (w - 360, h - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.33, (180, 180, 180), 1)
 
-        # ---- Mask panel stacked below the main frame ----
+        # ---- Mask panel side-by-side (50 / 50 split) ----
         if state.show_mask:
             # Build BGR mask at processing resolution
             mask_bgr = np.zeros((proc_h, proc_w, 3), dtype=np.uint8)
             mask_bgr[:, :, 1] = np.minimum(puck_mask * 2, 255)      # green for puck
             mask_bgr[:, :, 2] = np.minimum(mallet_mask * 2, 255)    # red for mallet
-            # Resize panel to fit below main frame (maintain aspect ratio)
-            panel_h = 160
-            scale = min(w / proc_w, panel_h / proc_h)
-            new_w = int(proc_w * scale)
-            new_h = int(proc_h * scale)
-            mask_sized = cv2.resize(mask_bgr, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
-            panel = np.zeros((panel_h, w, 3), dtype=np.uint8)
-            x_off = (w - new_w) // 2
-            panel[:new_h, x_off:x_off + new_w] = mask_sized
-            cv2.putText(panel, "MASK", (10, panel_h - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            # Stack mask below the main video
-            vis = np.vstack([vis, panel])
+            # Resize mask to exactly match main frame dimensions
+            mask_sized = cv2.resize(mask_bgr, (w, h), interpolation=cv2.INTER_NEAREST)
+            cv2.putText(mask_sized, "MASK", (10, h - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            # Stack mask to the right of the main video
+            vis = np.hstack([vis, mask_sized])
             if not prev_show_mask:
-                cv2.resizeWindow("Defense Mode", w, h + panel_h)
+                cv2.resizeWindow("Defense Mode", w * 2, h)
         else:
             # Clean up any lingering separate window from a previous run
             try:
