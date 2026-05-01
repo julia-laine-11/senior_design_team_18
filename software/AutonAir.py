@@ -2063,8 +2063,6 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     (w - 360, h - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.33, (180, 180, 180), 1)
 
-        cv2.imshow("Defense Mode", vis)
-
         # ---- Mask overlay in main window (no separate window) ----
         if state.show_mask:
             # Build a small BGR mask image at processing resolution
@@ -2091,6 +2089,8 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     cv2.destroyWindow("Masks")
             except cv2.error:
                 pass
+
+        cv2.imshow("Defense Mode", vis)
 
         # Console log
         frame_count += 1
