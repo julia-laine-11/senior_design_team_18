@@ -418,6 +418,7 @@ class GameState:
         # Game / defense
         self.game_enabled = False
         self.clear_mode = False  # NEW
+        self.window_geometry = settings.get("window_geometry", None)
         
         self.speed = _as_int(
             settings.get("speed", DEFAULT_SPEED),
@@ -519,6 +520,7 @@ class GameState:
             "show_mask": self.show_mask,
             "show_roi": self.show_roi,
             "show_trajectory": self.show_trajectory,
+            "window_geometry": self.window_geometry,
         }
 
     def save_settings(self):
@@ -602,6 +604,15 @@ class GameState:
     def set_speed(self, val):
         with self.lock:
             self.speed = int(float(val))
+            self.save_settings()
+
+    def get_window_geometry(self):
+        with self.lock:
+            return self.window_geometry
+
+    def set_window_geometry(self, geometry):
+        with self.lock:
+            self.window_geometry = geometry
             self.save_settings()
 
     def get_cardinal_speed(self):
@@ -691,9 +702,11 @@ class ControlGUI:
         self.fh = frame_h
         self.root = tk.Tk()
         self.root.title("⬢  Defense Mode Controls")
-        self.root.geometry("540x860")
+        geom = state.get_window_geometry()
+        self.root.geometry(geom if geom else "540x860")
         self.root.minsize(500, 700)
         self.root.configure(bg=THEME["bg"])
+        self.root.bind("<Destroy>", lambda e: state.set_window_geometry(self.root.geometry()))
         self._apply_theme()
         self._build()
         self._start_update()
@@ -1456,6 +1469,7 @@ def _inner_loop(state, stop_event, ctrl, reader,
     puck_lost_frames = 0
     mallet_lost_frames = 0
     puck_last_seen = time.perf_counter()
+    post_clear_return = False  # rush home immediately after a clear strike
 
     # Manual drive
     dx, dy = 0, 0
@@ -1737,22 +1751,34 @@ def _inner_loop(state, stop_event, ctrl, reader,
 
             # --- Check CLEAR MODE conditions first ---
             is_puck_our_side = puck_det and px < (w / 2.0)
-            is_puck_stopped = puck_det and puck_speed < 0.05
+            is_puck_stopped = puck_det and abs(pvx) < 3.0  # low X vel = stopped or Y-sliding
 
-            if clear_on and is_puck_our_side and is_puck_stopped:
+            # --- Post-clear: rush home immediately after a strike ---
+            if post_clear_return:
+                defense_state = "CLEAR_HOME"
+                _reset_target_stability()
+                target_vx, target_vy = _drive_to(home_x, home_y, HOME_THRESHOLD)
+                target_home = _safe_target(home_x, home_y)
+                home_dist = ((target_home[0] - mx) ** 2 + (target_home[1] - my) ** 2) ** 0.5
+                if home_dist <= HOME_THRESHOLD:
+                    post_clear_return = False
+                    defense_state = "HOME"
+
+            elif clear_on and is_puck_our_side and is_puck_stopped:
                 _reset_target_stability()
                 defense_state = "CLEARING"
 
                 if mx < px - 15 and abs(my - py) < 30:
+                    # Strike straight through to the right
                     target_x = min(safe_right, px + 150)
                     target_y = py
+                    post_clear_return = True  # force rapid home return next frame
                 else:
+                    # Navigate to get behind it
                     target_x = max(safe_left, px - 50)
                     target_y = py
 
                 target_vx, target_vy = _drive_to(target_x, target_y)
-
-            # ---- Normal Autonomous Defense ----
             elif not puck_det or (px < 0 and py < 0):
                 defense_state = "HOMING"
                 _reset_target_stability()
@@ -1959,7 +1985,12 @@ def _inner_loop(state, stop_event, ctrl, reader,
                 and (pvx * pvx + pvy * pvy) > 100):
             t_bounds = {'left': roi['left'], 'right': roi['right'],
                         'top': roi['top'], 'bottom': roi['bottom']}
-            traj = predict_trajectory(px, py, pvx, pvy, w, h, t_bounds)
+            # Clamp velocity for display to prevent impossible long tracers
+            # from Kalman spikes (max ≈ hard air-hockey shot)
+            max_traj_vel = 120.0
+            tvx = max(-max_traj_vel, min(max_traj_vel, pvx))
+            tvy = max(-max_traj_vel, min(max_traj_vel, pvy))
+            traj = predict_trajectory(px, py, tvx, tvy, w, h, t_bounds)
             if len(traj) > 1:
                 pts = np.array(traj, dtype=np.int32)
                 cv2.polylines(vis, [pts], False, (255, 0, 255), 2)
@@ -2034,27 +2065,27 @@ def _inner_loop(state, stop_event, ctrl, reader,
 
         cv2.imshow("Defense Mode", vis)
 
-        # ---- Show masks ----
+        # ---- Mask overlay in main window (no separate window) ----
         if state.show_mask:
-            pm_full = cv2.resize(puck_mask, (w, h),
-                                 interpolation=cv2.INTER_NEAREST)
-            mm_full = cv2.resize(mallet_mask, (w, h),
-                                 interpolation=cv2.INTER_NEAREST)
-            mv = np.zeros((h, w, 3), dtype=np.uint8)
-            mv[:, :, 1] = pm_full
-            mv[:, :, 2] = mm_full
-            mallet_green = ((mm_full.astype(np.uint16) * 165) // 255).astype(np.uint8)
-            mv[:, :, 1] = np.maximum(mv[:, :, 1], mallet_green)
-            cv2.putText(mv, "Puck: Green                   Mallet: Orange", (10, 25),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                        (255, 255, 255), 1)
-            # Ensure the Masks window is resizable (idempotent: a no-op
-            # after the first call). Image is auto-fitted to the window.
-            if cv2.getWindowProperty("Masks", cv2.WND_PROP_VISIBLE) < 1:
-                cv2.namedWindow("Masks", cv2.WINDOW_NORMAL)
-                cv2.resizeWindow("Masks", w, h)
-            cv2.imshow("Masks", mv)
+            # Build a small BGR mask image at processing resolution
+            mask_bgr = np.zeros((proc_h, proc_w, 3), dtype=np.uint8)
+            mask_bgr[:, :, 1] = np.minimum(puck_mask * 2, 255)      # green for puck
+            mask_bgr[:, :, 2] = np.minimum(mallet_mask * 2, 255)    # red for mallet
+            # Resize to corner thumbnail
+            thumb_w, thumb_h = 200, int(proc_h * 200 / proc_w)
+            thumb = cv2.resize(mask_bgr, (thumb_w, thumb_h), interpolation=cv2.INTER_NEAREST)
+            # Place in bottom-right corner with padding
+            pad = 10
+            y0 = h - thumb_h - pad
+            x0 = w - thumb_w - pad
+            if y0 >= 0 and x0 >= 0:
+                roi_main = vis[y0:y0+thumb_h, x0:x0+thumb_w]
+                cv2.addWeighted(roi_main, 0.6, thumb, 0.4, 0, roi_main)
+                cv2.rectangle(vis, (x0-1, y0-1), (x0+thumb_w, y0+thumb_h), (200, 200, 200), 1)
+                cv2.putText(vis, "MASK", (x0, y0 - 4),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
         else:
+            # Clean up any lingering separate window from a previous run
             try:
                 if cv2.getWindowProperty("Masks", cv2.WND_PROP_VISIBLE) >= 1:
                     cv2.destroyWindow("Masks")
