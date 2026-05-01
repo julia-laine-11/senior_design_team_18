@@ -1486,6 +1486,7 @@ def _inner_loop(state, stop_event, ctrl, reader,
     fps = 0.0
     last_time = time.perf_counter()
     frame_count = 0
+    prev_show_mask = False
 
     while not stop_event.is_set():
         t0 = time.perf_counter()
@@ -2063,25 +2064,27 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     (w - 360, h - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.33, (180, 180, 180), 1)
 
-        # ---- Mask overlay in main window (no separate window) ----
+        # ---- Mask panel stacked below the main frame ----
         if state.show_mask:
-            # Build a small BGR mask image at processing resolution
+            # Build BGR mask at processing resolution
             mask_bgr = np.zeros((proc_h, proc_w, 3), dtype=np.uint8)
             mask_bgr[:, :, 1] = np.minimum(puck_mask * 2, 255)      # green for puck
             mask_bgr[:, :, 2] = np.minimum(mallet_mask * 2, 255)    # red for mallet
-            # Resize to corner thumbnail
-            thumb_w, thumb_h = 200, int(proc_h * 200 / proc_w)
-            thumb = cv2.resize(mask_bgr, (thumb_w, thumb_h), interpolation=cv2.INTER_NEAREST)
-            # Place in bottom-right corner with padding
-            pad = 10
-            y0 = h - thumb_h - pad
-            x0 = w - thumb_w - pad
-            if y0 >= 0 and x0 >= 0:
-                roi_main = vis[y0:y0+thumb_h, x0:x0+thumb_w]
-                cv2.addWeighted(roi_main, 0.6, thumb, 0.4, 0, roi_main)
-                cv2.rectangle(vis, (x0-1, y0-1), (x0+thumb_w, y0+thumb_h), (200, 200, 200), 1)
-                cv2.putText(vis, "MASK", (x0, y0 - 4),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 255), 1)
+            # Resize panel to fit below main frame (maintain aspect ratio)
+            panel_h = 160
+            scale = min(w / proc_w, panel_h / proc_h)
+            new_w = int(proc_w * scale)
+            new_h = int(proc_h * scale)
+            mask_sized = cv2.resize(mask_bgr, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
+            panel = np.zeros((panel_h, w, 3), dtype=np.uint8)
+            x_off = (w - new_w) // 2
+            panel[:new_h, x_off:x_off + new_w] = mask_sized
+            cv2.putText(panel, "MASK", (10, panel_h - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            # Stack mask below the main video
+            vis = np.vstack([vis, panel])
+            if not prev_show_mask:
+                cv2.resizeWindow("Defense Mode", w, h + panel_h)
         else:
             # Clean up any lingering separate window from a previous run
             try:
@@ -2089,6 +2092,9 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     cv2.destroyWindow("Masks")
             except cv2.error:
                 pass
+            if prev_show_mask:
+                cv2.resizeWindow("Defense Mode", w, h)
+        prev_show_mask = state.show_mask
 
         cv2.imshow("Defense Mode", vis)
 
