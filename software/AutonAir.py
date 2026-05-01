@@ -1469,7 +1469,8 @@ def _inner_loop(state, stop_event, ctrl, reader,
     puck_lost_frames = 0
     mallet_lost_frames = 0
     puck_last_seen = time.perf_counter()
-    post_clear_return = False  # rush home immediately after a clear strike
+    post_clear_return = False   # rush home immediately after a clear strike
+    clear_strike_target = None  # (tx, ty) while executing a clear strike
 
     # Manual drive
     dx, dy = 0, 0
@@ -1744,6 +1745,7 @@ def _inner_loop(state, stop_event, ctrl, reader,
             defense_state = "SAFETY STOP"
             target_vx, target_vy = 0.0, 0.0
             _reset_target_stability()
+            clear_strike_target = None
 
         elif game_on:
             # Defend at the goal line, clamped to the safe zone.
@@ -1769,20 +1771,29 @@ def _inner_loop(state, stop_event, ctrl, reader,
                 _reset_target_stability()
                 defense_state = "CLEARING"
 
-                if mx < px - 15 and abs(my - py) < 30:
-                    # Strike straight through to the right
-                    target_x = min(safe_right, px + 150)
-                    target_y = py
-                    post_clear_return = True  # force rapid home return next frame
+                if clear_strike_target is not None:
+                    # Continue an active strike to the right
+                    tx, ty = clear_strike_target
+                    target_vx, target_vy = _drive_to(tx, ty)
+                    # End strike when we're close to the target or have passed the puck
+                    if ((mx - tx) ** 2 + (my - ty) ** 2) ** 0.5 < 35 or mx > px:
+                        post_clear_return = True
+                        clear_strike_target = None
+                elif mx < px - 15 and abs(my - py) < 30:
+                    # Start strike straight through to the right
+                    tx = min(safe_right, px + 150)
+                    ty = py
+                    clear_strike_target = (tx, ty)
+                    target_vx, target_vy = _drive_to(tx, ty)
                 else:
                     # Navigate to get behind it
                     target_x = max(safe_left, px - 50)
                     target_y = py
-
-                target_vx, target_vy = _drive_to(target_x, target_y)
+                    target_vx, target_vy = _drive_to(target_x, target_y)
             elif not puck_det or (px < 0 and py < 0):
                 defense_state = "HOMING"
                 _reset_target_stability()
+                clear_strike_target = None
                 target_vx, target_vy = _drive_to(home_x, home_y, HOME_THRESHOLD)
 
                 target_home = _safe_target(home_x, home_y)
@@ -1791,6 +1802,7 @@ def _inner_loop(state, stop_event, ctrl, reader,
                     defense_state = "HOME"
 
             else:
+                clear_strike_target = None
                 # Puck visible – predict if it will reach our defense line.
                 # Predict at the guard line first (mallet face contact point).
                 goal_result = predict_intercept(
@@ -1883,6 +1895,7 @@ def _inner_loop(state, stop_event, ctrl, reader,
             defense_state = "MANUAL"
             target_vx, target_vy = float(dx), float(dy)
             _reset_target_stability()
+            clear_strike_target = None
 
         # ============================================================
         # NEW LOGIC: Acceleration Ramping (Ramp UP only, snap on stop)
